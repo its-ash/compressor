@@ -1,0 +1,6 @@
+# Build artifacts
+pkg/
+target/
+
+# wasm-pack wasm-opt cache
+wasm-pack.log
