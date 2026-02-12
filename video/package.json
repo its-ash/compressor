@@ -1,0 +1,26 @@
+{
+  "name": "wasm-video-studio",
+  "version": "1.0.0",
+  "description": "Private, in-browser video trimming, cropping, and compression. WebAssembly powered, no uploads.",
+  "type": "module",
+  "scripts": {
+    "dev": "python3 -m http.server 8080",
+    "build:wasm": "wasm-pack build --target web --out-dir pkg",
+    "serve": "python3 -m http.server 8080",
+    "start": "npm run serve"
+  },
+  "keywords": [
+    "video",
+    "compression",
+    "webassembly",
+    "rust",
+    "ffmpeg",
+    "pwa",
+    "offline",
+    "privacy"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {},
+  "dependencies": {}
+}
