@@ -5,21 +5,20 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#06090f" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#f7f9fc" media="(prefers-color-scheme: light)">
-  <meta name="description" content="Free, private, in-browser ZIP compressor. Select folders or files and create archives locally on your device. No uploads, works offline.">
+  <meta name="description" content="Free, private compression tools. Video editor and file zipper - everything processed locally in your browser. No uploads, works offline.">
   <meta name="robots" content="index,follow">
+  <link rel="favicon" href="./icon.gif">
   <link rel="canonical" href="https://free-file-compress.online/">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://free-file-compress.online/">
-  <meta property="og:title" content="Free File Compress | Local ZIP in your browser">
-  <meta property="og:description" content="Zip folders and files privately in your browser. Nothing leaves your device.">
+  <meta property="og:title" content="Compression Tools | Free & Private">
+  <meta property="og:description" content="Video editor and file zipper - process everything locally in your browser.">
   <meta property="og:image" content="https://free-file-compress.online/icons/icon-512.png">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Free File Compress | Local ZIP in your browser">
-  <meta name="twitter:description" content="Zip folders and files privately in your browser. Nothing leaves your device.">
+  <meta name="twitter:title" content="Compression Tools | Free & Private">
+  <meta name="twitter:description" content="Video editor and file zipper - process everything locally in your browser.">
   <meta name="twitter:image" content="https://free-file-compress.online/icons/icon-512.png">
-  <title>Free File Compress | Local ZIP in your browser</title>
-  <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="icon" href="./icons/icon-192.svg">
+  <title>Compression Tools | Free & Private</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -29,8 +28,10 @@
       --bg: #0b1220;
       --panel: rgba(15, 23, 42, 0.85);
       --panel-strong: rgba(15, 23, 42, 0.95);
-      --accent: #8b5cf6;
+      --accent: #0ea5e9;
       --accent-2: #22d3ee;
+      --accent-purple: #8b5cf6;
+      --accent-purple-2: #a855f7;
       --text: #e2e8f0;
       --muted: #94a3b8;
       --border: rgba(255, 255, 255, 0.08);
@@ -43,8 +44,10 @@
         --bg: #f5f7fb;
         --panel: rgba(255, 255, 255, 0.9);
         --panel-strong: rgba(255, 255, 255, 0.98);
-        --accent: #7c3aed;
-        --accent-2: #0891b2;
+        --accent: #0284c7;
+        --accent-2: #06b6d4;
+        --accent-purple: #7c3aed;
+        --accent-purple-2: #8b5cf6;
         --text: #0f172a;
         --muted: #475569;
         --border: rgba(15, 23, 42, 0.1);
@@ -56,266 +59,280 @@
     body {
       margin: 0;
       min-height: 100vh;
-      background: radial-gradient(circle at 16% 22%, rgba(139, 92, 246, 0.2), transparent 36%),
-          radial-gradient(circle at 82% 12%, rgba(34, 211, 238, 0.16), transparent 34%),
-          radial-gradient(circle at 50% 72%, rgba(37, 99, 235, 0.12), transparent 38%),
-          var(--bg);
+      background: var(--bg);
       color: var(--text);
       font-family: 'Space Grotesk', system-ui, sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 16px;
-      padding: 32px 16px;
+      padding: 20px;
     }
 
-    @media (prefers-color-scheme: light) {
-      body {
-        background: radial-gradient(circle at 18% 18%, rgba(124, 58, 237, 0.16), transparent 38%),
-                    radial-gradient(circle at 76% 12%, rgba(8, 145, 178, 0.18), transparent 34%),
-                    radial-gradient(circle at 50% 72%, rgba(14, 165, 233, 0.12), transparent 40%),
-                    var(--bg);
-      }
+    .container {
+      max-width: 1200px;
+      width: 100%;
+      text-align: center;
     }
 
-    main {
-      width: min(980px, 100%);
-      grid-template-columns: 1.2fr 1fr;
-      gap: 20px;
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 28px;
-      backdrop-filter: blur(10px);
-      box-shadow: var(--shadow);
+    .header {
+      margin-bottom: 60px;
     }
 
-    .hero {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      text-transform: uppercase;
-      letter-spacing: 0.24em;
-      font-size: 12px;
-      color: var(--muted);
-    }
-
-    .eyebrow::before {
-      content: "";
-      width: 18px;
-      height: 2px;
-      background: linear-gradient(90deg, var(--accent), var(--accent-2));
-      border-radius: 2px;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: 38px;
-      line-height: 1.05;
+    .title {
+      font-size: 48px;
+      font-weight: 600;
       letter-spacing: -0.02em;
+      margin: 0 0 16px 0;
+      background: linear-gradient(120deg, var(--accent), var(--accent-2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
 
-    .lede {
+    .subtitle {
+      font-size: 20px;
       color: var(--muted);
-      line-height: 1.6;
-      max-width: 46ch;
-      font-size: 15px;
+      margin: 0 0 32px 0;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
     }
 
-    .pill-row {
+    .features {
       display: flex;
-      gap: 10px;
+      justify-content: center;
+      gap: 32px;
+      margin-bottom: 60px;
       flex-wrap: wrap;
     }
 
-    .pill {
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 8px 12px;
-      border-radius: 999px;
-      font-size: 13px;
-      background: linear-gradient(120deg, rgba(139, 92, 246, 0.12), rgba(34, 211, 238, 0.08));
+    .feature {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 16px;
+      color: var(--muted);
     }
 
-    .card {
+    .feature::before {
+      content: "✓";
+      color: var(--accent);
+      font-weight: bold;
+    }
+
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 40px;
+      margin-bottom: 60px;
+    }
+
+    .tool-card {
       background: var(--panel-strong);
       border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 20px;
+      border-radius: 20px;
+      padding: 40px 32px;
+      text-decoration: none;
+      color: var(--text);
+      transition: all 0.3s ease;
       display: flex;
       flex-direction: column;
-      gap: 14px;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    }
-
-    label.dropzone {
-      border: 1px dashed var(--border);
-      border-radius: 12px;
-      padding: 18px;
-      background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(34, 211, 238, 0.05));
-      cursor: pointer;
-      transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-      display: flex;
-      justify-content: space-between;
       align-items: center;
-      gap: 10px;
+      gap: 24px;
+      box-shadow: var(--shadow);
     }
 
-    label.dropzone:hover {
+    .tool-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 24px 100px rgba(0, 0, 0, 0.5);
       border-color: var(--accent);
-      transform: translateY(-2px);
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
     }
 
-    label .hint {
+    .tool-icon {
+      width: 80px;
+      height: 80px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      font-weight: 600;
+    }
+
+    .video-icon {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #0b1220;
+    }
+
+    .zip-icon {
+      background: linear-gradient(135deg, var(--accent-purple), var(--accent-purple-2));
+      color: white;
+    }
+
+    .tool-title {
+      font-size: 28px;
+      font-weight: 600;
+      margin: 0;
+      letter-spacing: -0.01em;
+    }
+
+    .tool-description {
+      font-size: 16px;
       color: var(--muted);
-      font-size: 14px;
+      line-height: 1.6;
+      margin: 0;
+      text-align: center;
     }
 
-    input[type="file"] { display: none; }
+    .tool-features {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+    }
 
-    button {
+    .tool-feature {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: var(--muted);
+      justify-content: center;
+    }
+
+    .tool-feature::before {
+      content: "•";
+      color: var(--accent);
+    }
+
+    .tool-button {
+      background: linear-gradient(120deg, var(--accent), var(--accent-2));
+      color: #0b1220;
       border: none;
       border-radius: 12px;
-      padding: 14px 16px;
-      font-size: 15px;
-      font-weight: 700;
-      color: #0b1220;
-      background: linear-gradient(120deg, var(--accent), var(--accent-2));
+      padding: 16px 32px;
+      font-size: 16px;
+      font-weight: 600;
       cursor: pointer;
-      transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.2s ease;
-      box-shadow: 0 12px 30px rgba(124, 58, 237, 0.25);
-    }
-
-    button:hover { transform: translateY(-2px); box-shadow: 0 16px 38px rgba(34, 211, 238, 0.25); }
-    button:active { transform: translateY(0); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15); }
-    button:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; transform: none; }
-
-    .status {
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 13px;
-      color: var(--muted);
-      min-height: 20px;
-    }
-
-    .status strong { color: var(--accent); }
-
-    .progress {
-      width: 100%;
-      height: 10px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid var(--border);
-      overflow: hidden;
-      transition: opacity 0.2s ease;
-      opacity: 0;
-    }
-
-    .progress-bar {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, var(--accent), var(--accent-2));
-      color: #0b1220;
-      font-size: 10px;
-      font-weight: 700;
-      display: flex;
+      transition: all 0.2s ease;
+      text-decoration: none;
+      display: inline-flex;
       align-items: center;
-      padding-left: 8px;
-      box-sizing: border-box;
-      transition: width 0.15s ease;
+      gap: 8px;
+      font-family: inherit;
     }
 
-    @media (max-width: 860px) {
-      main { grid-template-columns: 1fr; }
-      h1 { font-size: 32px; }
+    .tool-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(14, 165, 233, 0.4);
+    }
+
+    .zip-button {
+      background: linear-gradient(120deg, var(--accent-purple), var(--accent-purple-2));
+    }
+
+    .zip-button:hover {
+      box-shadow: 0 8px 24px rgba(139, 92, 246, 0.4);
     }
 
     .footer {
+      font-size: 14px;
       color: var(--muted);
-      font-size: 13px;
       text-align: center;
+      max-width: 600px;
+      margin: 0 auto;
     }
 
     .footer a {
       color: var(--accent);
       text-decoration: none;
-      font-weight: 600;
     }
 
     .footer a:hover {
       text-decoration: underline;
     }
+
+    @media (max-width: 768px) {
+      .title {
+        font-size: 36px;
+      }
+
+      .subtitle {
+        font-size: 18px;
+      }
+
+      .tools-grid {
+        grid-template-columns: 1fr;
+        gap: 32px;
+      }
+
+      .tool-card {
+        padding: 32px 24px;
+      }
+
+      .features {
+        flex-direction: column;
+        gap: 16px;
+      }
+    }
   </style>
 </head>
 <body>
-    <main>
-      <section class="card" aria-label="Free ZIP compressor">
-        <div class="eyebrow">Local only</div>
-        <h1>Zip folders right in the browser.</h1>
-        <p class="lede">Free File Compress keeps every byte on your device. Choose a folder or files, hit create, and get a ready-to-share ZIP instantly.</p>
-        <label class="dropzone" for="folderInput">
-          <div>
-            <div style="font-weight:600;">Choose a folder to compress</div>
-            <div class="hint">Nested files are preserved. Nothing is uploaded.</div>
-          </div>
-          <span style="color:var(--accent); font-weight:600;">Browse folder</span>
-        </label>
-        <input id="folderInput" type="file" webkitdirectory multiple>
+  <div class="container">
+    <header class="header">
+      <h1 class="title">Compression Tools</h1>
+      <p class="subtitle">Free, private, and powerful compression tools that work entirely in your browser. No uploads, no data sharing, complete privacy.</p>
 
-        <label class="dropzone" for="fileInput">
-          <div>
-            <div style="font-weight:600;">Or add individual files</div>
-            <div class="hint">Mix with folders if you like.</div>
-          </div>
-          <span style="color:var(--accent); font-weight:600;">Browse files</span>
-        </label>
-        <input id="fileInput" type="file" multiple>
+      <div class="features">
+        <div class="feature">100% Local Processing</div>
+        <div class="feature">No Uploads Required</div>
+        <div class="feature">Works Offline</div>
+        <div class="feature">WebAssembly Powered</div>
+      </div>
+    </header>
 
-        <button id="compressBtn">Create ZIP</button>
-        <button id="installBtn" style="display:none;">Install app</button>
-        <div class="status" id="status"></div>
-        <div class="progress" id="progress">
-          <div class="progress-bar" id="progressBar"></div>
+    <main class="tools-grid">
+      <a href="./video/" class="tool-card">
+        <div class="tool-icon video-icon">🎬</div>
+        <h2 class="tool-title">Video Studio</h2>
+        <p class="tool-description">Professional video editing tools powered by WebAssembly. Trim, crop, compress, and process videos locally in your browser.</p>
+
+        <div class="tool-features">
+          <div class="tool-feature">Trim & crop videos</div>
+          <div class="tool-feature">Multiple format support</div>
+          <div class="tool-feature">Batch processing</div>
+          <div class="tool-feature">FFmpeg integration</div>
         </div>
-        <div class="status" id="fileCount"></div>
-        <div class="pill-row" aria-label="Key benefits">
-          <div class="pill">100% local processing</div>
-          <div class="pill">Folder structure preserved</div>
-          <div class="pill">Works offline (PWA)</div>
-          <div class="pill">No size sent to servers</div>
+
+        <button class="tool-button">Open Video Studio →</button>
+      </a>
+
+      <a href="./zip/" class="tool-card">
+        <div class="tool-icon zip-icon">📦</div>
+        <h2 class="tool-title">File Compressor</h2>
+        <p class="tool-description">Create ZIP archives from your files and folders. Compress multiple items into organized archives with drag-and-drop simplicity.</p>
+
+        <div class="tool-features">
+          <div class="tool-feature">ZIP archive creation</div>
+          <div class="tool-feature">Folder compression</div>
+          <div class="tool-feature">Drag & drop interface</div>
+          <div class="tool-feature">Batch file processing</div>
         </div>
-      </section>
+
+        <button class="tool-button zip-button">Open File Compressor →</button>
+      </a>
     </main>
 
-    <footer class="footer">Built by <a href="https://its-ash.github.io/" target="_blank" rel="noreferrer">Ashvini Jangid</a></footer>
-
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "WebApplication",
-    "name": "Free File Compress",
-    "url": "https://free-file-compress.online/",
-    "applicationCategory": "Utility",
-    "operatingSystem": "Any",
-    "description": "Free in-browser ZIP compressor that keeps all files on your device. Supports folders and multiple files, offline capable.",
-    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}
-  }
-  </script>
-
-  <script type="module" src="./main.js"></script>
-  <script>
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./sw.js").catch(() => {});
-      });
-    }
-  </script>
+    <footer class="footer">
+      <p>
+        Built with ❤️ using WebAssembly, Rust, and modern web technologies.
+        <br>
+        Created by <a href="https://its-ash.github.io/" target="_blank">Ashvini Jangid</a> •
+        <a href="https://github.com/its-ash/compressor" target="_blank">View on GitHub</a> •
+        <a href="https://free-file-compress.online/" target="_blank">Learn More</a>
+      </p>
+    </footer>
+  </div>
 </body>
 </html>
