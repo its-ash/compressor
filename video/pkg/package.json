@@ -1,0 +1,17 @@
+{
+  "name": "video_wasm",
+  "type": "module",
+  "description": "WebAssembly video file metadata extractor and validator",
+  "version": "0.1.0",
+  "license": "MIT OR Apache-2.0",
+  "files": [
+    "video_wasm_bg.wasm",
+    "video_wasm.js",
+    "video_wasm.d.ts"
+  ],
+  "main": "video_wasm.js",
+  "types": "video_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
