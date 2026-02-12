@@ -1,0 +1,17 @@
+{
+  "name": "compressor",
+  "type": "module",
+  "description": "Browser-only ZIP compression powered by Rust and WebAssembly",
+  "version": "0.1.0",
+  "license": "MIT OR Apache-2.0",
+  "files": [
+    "compressor_bg.wasm",
+    "compressor.js",
+    "compressor.d.ts"
+  ],
+  "main": "compressor.js",
+  "types": "compressor.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
