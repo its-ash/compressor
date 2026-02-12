@@ -63,8 +63,10 @@
       color: var(--text);
       font-family: 'Space Grotesk', system-ui, sans-serif;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
+      gap: 16px;
       padding: 32px 16px;
     }
 
@@ -234,6 +236,22 @@
       main { grid-template-columns: 1fr; }
       h1 { font-size: 32px; }
     }
+
+    .footer {
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .footer a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
@@ -275,6 +293,8 @@
         </div>
       </section>
     </main>
+
+    <footer class="footer">Built by <a href="https://its-ash.github.io/" target="_blank" rel="noreferrer">Ashvini Jangid</a></footer>
 
   <script type="application/ld+json">
   {
