@@ -22,6 +22,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./common.css">
   <style>
     :root {
       color-scheme: dark light;
@@ -127,23 +128,23 @@
 
     .tools-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-      gap: 40px;
-      margin-bottom: 60px;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+      margin-bottom: 40px;
     }
 
     .tool-card {
       background: var(--panel-strong);
       border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 40px 32px;
+      border-radius: 16px;
+      padding: 24px 20px;
       text-decoration: none;
       color: var(--text);
       transition: all 0.3s ease;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 24px;
+      gap: 16px;
       box-shadow: var(--shadow);
     }
 
@@ -154,13 +155,13 @@
     }
 
     .tool-icon {
-      width: 80px;
-      height: 80px;
-      border-radius: 16px;
+      width: 60px;
+      height: 60px;
+      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 36px;
+      font-size: 28px;
       font-weight: 600;
     }
 
@@ -180,16 +181,16 @@
     }
 
     .tool-title {
-      font-size: 28px;
+      font-size: 24px;
       font-weight: 600;
       margin: 0;
       letter-spacing: -0.01em;
     }
 
     .tool-description {
-      font-size: 16px;
+      font-size: 14px;
       color: var(--muted);
-      line-height: 1.6;
+      line-height: 1.5;
       margin: 0;
       text-align: center;
     }
@@ -219,16 +220,16 @@
       background: linear-gradient(120deg, var(--accent), var(--accent-2));
       color: #0b1220;
       border: none;
-      border-radius: 12px;
-      padding: 16px 32px;
-      font-size: 16px;
+      border-radius: 10px;
+      padding: 12px 24px;
+      font-size: 14px;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s ease;
       text-decoration: none;
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       font-family: inherit;
     }
 

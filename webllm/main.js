@@ -169,12 +169,6 @@ async function handleSubmit() {
         const context = contextInput.value.trim();
         const prompt = promptInput.value.trim();
 
-        if (!context) {
-                setStatus("Add some context first", "error");
-                contextInput.focus();
-                return;
-        }
-
         if (!prompt) {
                 setStatus("Enter a prompt", "error");
                 promptInput.focus();
