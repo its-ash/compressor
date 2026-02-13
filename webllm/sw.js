@@ -25,7 +25,15 @@ self.addEventListener("activate", event => {
 
 self.addEventListener("fetch", event => {
   const { request } = event;
-  if (request.method !== "GET" || new URL(request.url).origin !== location.origin) {
+  const url = new URL(request.url);
+  
+  // Skip non-GET requests and non-origin requests
+  if (request.method !== "GET" || url.origin !== location.origin) {
+    return;
+  }
+  
+  // Skip unsupported URL schemes (chrome-extension, blob, data, etc.)
+  if (!url.protocol.startsWith('http')) {
     return;
   }
 
@@ -34,8 +42,15 @@ self.addEventListener("fetch", event => {
       if (cached) return cached;
       return fetch(request)
         .then(response => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
+          // Only cache successful responses
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(request, clone).catch(err => {
+                console.warn('[SW] Failed to cache:', request.url, err.message);
+              });
+            });
+          }
           return response;
         })
         .catch(() => caches.match("./index.html"));

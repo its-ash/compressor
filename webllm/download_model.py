@@ -36,7 +36,15 @@ def main():
     for f in files:
         download_file(f)
 
-    # 2. Parse ndarray-cache.json for shards
+    # 2. Copy ndarray-cache.json to tensor-cache.json if needed (WebLLM version compatibility)
+    ndarray_path = os.path.join(TARGET_DIR, "ndarray-cache.json")
+    tensor_path = os.path.join(TARGET_DIR, "tensor-cache.json")
+    if os.path.exists(ndarray_path) and not os.path.exists(tensor_path):
+        import shutil
+        shutil.copy(ndarray_path, tensor_path)
+        print(f"Created tensor-cache.json from ndarray-cache.json")
+
+    # 3. Parse ndarray-cache.json for shards
     cache_path = os.path.join(TARGET_DIR, "ndarray-cache.json")
     if os.path.exists(cache_path):
         with open(cache_path, 'r') as f:

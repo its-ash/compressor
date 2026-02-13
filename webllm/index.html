@@ -45,6 +45,7 @@
       display: flex;
       flex-direction: column;
       gap: 32px;
+      min-height: calc(100vh - 160px);
     }
 
     header {
@@ -59,7 +60,7 @@
     }
 
     .hero h1 {
-      font-size: clamp(32px, 4vw, 56px);
+      font-size: clamp(32px, 4vw, 40px);
       margin: 0 0 16px;
       letter-spacing: -0.02em;
       background: linear-gradient(120deg, var(--accent) 0%, var(--accent-2) 50%, var(--accent-warm));
@@ -115,9 +116,11 @@
     }
 
     main {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      display: flex;
+      flex-direction: column;
       gap: 32px;
+      flex: 1;
+      min-height: 0;
     }
 
     .panel {
@@ -216,8 +219,29 @@
       display: flex;
       flex-direction: column;
       gap: 16px;
-      max-height: 520px;
       overflow-y: auto;
+    }
+
+    .history-panel {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .history-panel .field {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .history-panel .history-list {
+      flex: 1;
+    }
+
+    .input-panel {
+      flex-shrink: 0;
     }
 
     .message {
@@ -279,7 +303,6 @@
     <header>
       <div class="hero">
         <h1>On-Device WebLLM Studio</h1>
-        <p>Pair your own context with prompts, stream answers from WebLLM, and keep the entire workflow offline. Rust manages conversation history while WebGPU handles generation.</p>
       </div>
       <div class="status-panel">
         <div class="status-pill" id="status-indicator" data-state="loading">Model warming up…</div>
@@ -291,7 +314,15 @@
     </header>
 
     <main>
-      <section class="panel">
+      <section class="panel history-panel">
+        <div class="field" aria-live="polite">
+          <label>Conversation history</label>
+          <div class="empty-state" id="history-empty">Waiting for your first prompt.</div>
+          <ul class="history-list" id="history-list" hidden></ul>
+        </div>
+      </section>
+
+      <section class="panel input-panel">
         <form id="prompt-form">
           <div class="field">
             <label for="context-input">Context</label>
@@ -312,14 +343,6 @@
         <div>
           <label>Active context preview</label>
           <div class="context-preview" id="context-preview">No context captured yet.</div>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="field" aria-live="polite">
-          <label>Conversation history</label>
-          <div class="empty-state" id="history-empty">Waiting for your first prompt.</div>
-          <ul class="history-list" id="history-list" hidden></ul>
         </div>
       </section>
     </main>

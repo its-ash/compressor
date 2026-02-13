@@ -26,24 +26,8 @@ if (!("caches" in globalThis)) {
 const LOCAL_MODEL_ROOT = new URL("./", window.location.href).href;
 const MODEL_ID = "Llama-3.2-1B-Instruct-q4f32_1-MLC";
 
-// Define a custom appConfig that points explicitly to our local files.
-// This overrides the default Hugging Face URLs in prebuiltAppConfig.
-const localAppConfig = {
-        model_list: [
-                {
-                        // Trick WebLLM's URL construction. It expects a HF-like path.
-                        // By setting model to "local-org/model-id", it will construct
-                        // LOCAL_MODEL_ROOT + "local-org/model-id" + "/resolve/main/" + "file"
-                        // We will intercept this via a fetch override.
-                        model: new URL(`local-build/${MODEL_ID}`, window.location.href).href,
-                        model_id: MODEL_ID,
-                        model_lib: webllm.modelLibURLPrefix + webllm.modelVersion + "/Llama-3.2-1B-Instruct-q4f32_1-ctx4k_cs1k-webgpu.wasm",
-                        vram_required_MB: 1046.73,
-                        low_resource_required: true,
-                }
-        ],
-        useIndexedDBCache: true
-};
+// Use the prebuilt config but intercept fetches to serve files locally
+const localAppConfig = webllm.prebuiltAppConfig;
 
 
 function createRequest(targetUrl, resource, init) {
@@ -77,7 +61,7 @@ function resolveLocalModelUrl(urlString) {
         return null;
 }
 
-// Re-enable fetch patching to intercept the constructed URL and map it to the correct local path.
+// Re-enable fetch patching to intercept Hugging Face URLs and serve local files
 const originalFetch = globalThis.fetch?.bind(globalThis);
 if (originalFetch) {
         globalThis.fetch = async function patchedFetch(resource, init) {
@@ -85,12 +69,12 @@ if (originalFetch) {
 
                 // Guard: only process if we have a valid URL string
                 if (urlString && typeof urlString === "string") {
-                        // Intercept requests for our local build and map them to the correct directory
-                        const localBuildMatch = urlString.match(/local-build\/([^/]+)\/resolve\/main\/(.+)$/);
-                        if (localBuildMatch) {
-                                const [, modelId, artifactPath] = localBuildMatch;
-                                const localUrl = `${LOCAL_MODEL_ROOT}${modelId}/${artifactPath}`;
-                                console.log(`Remapping ${urlString} to ${localUrl}`);
+                        // Intercept Hugging Face model URLs and map to local directory
+                        const hfMatch = urlString.match(/huggingface\.co\/mlc-ai\/Llama-3\.2-1B-Instruct-q4f32_1-MLC\/resolve\/main\/(.+)$/);
+                        if (hfMatch) {
+                                const [, artifactPath] = hfMatch;
+                                const localUrl = `${LOCAL_MODEL_ROOT}Llama-3.2-1B-Instruct-q4f32_1-MLC/${artifactPath}`;
+                                console.log(`Serving locally: ${artifactPath}`);
                                 return originalFetch(localUrl, init);
                         }
                 }
