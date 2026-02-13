@@ -45,7 +45,6 @@ const localAppConfig = {
         useIndexedDBCache: true
 };
 
-const HUGGINGFACE_TOKEN = null;
 
 function createRequest(targetUrl, resource, init) {
         const base = resource instanceof Request ? resource : null;
