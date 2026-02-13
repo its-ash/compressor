@@ -1,706 +1,957 @@
-import init, {
-  validate_trim,
-  validate_crop,
-  generate_ffmpeg_filters,
-  build_processing_params,
-  format_timestamp,
-  parse_timestamp,
-  calculate_crop_with_aspect_ratio
+import initWasm, {
+	analyze_video_header,
+	build_processing_params,
+	format_file_size,
+	format_timestamp,
+	get_recommended_format,
+	parse_timestamp,
+	validate_crop,
+	validate_trim,
+	validate_video_batch,
+	validate_video_file,
 } from "./pkg/video_wasm.js";
 
-// Access FFmpeg constructor from global scope (loaded via script tag)
-const ffmpegNamespace = window.FFmpegWASM ?? window.FFmpeg;
-if (!ffmpegNamespace) {
-  throw new Error("FFmpeg WASM bundle is missing. Ensure ffmpeg.min.js is loaded before main.js.");
-}
-
-const FfmpegClass = ffmpegNamespace.FFmpeg ?? ffmpegNamespace.default;
-if (typeof FfmpegClass !== "function") {
-  throw new Error("FFmpeg constructor not found on the global namespace.");
-}
-
-// Minimal fetchFile replacement for the browser runtime
-const fetchFile = async (source) => {
-  if (source instanceof Uint8Array) return source;
-  if (source instanceof ArrayBuffer) return new Uint8Array(source);
-  if (ArrayBuffer.isView(source)) {
-    const { buffer, byteOffset, byteLength } = source;
-    return new Uint8Array(buffer.slice(byteOffset, byteOffset + byteLength));
-  }
-  if (source instanceof Blob) {
-    return new Uint8Array(await source.arrayBuffer());
-  }
-  if (typeof source === "string") {
-    const response = await fetch(source);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch ${source}: ${response.status} ${response.statusText}`);
-    }
-    return new Uint8Array(await response.arrayBuffer());
-  }
-  throw new Error("Unsupported data type passed to fetchFile");
+let wasmReadyPromise = null;
+const ensureWasm = () => {
+	if (!wasmReadyPromise) {
+		wasmReadyPromise = initWasm();
+	}
+	return wasmReadyPromise;
 };
 
-const FF_VERSION = "0.12.10";
-const CORE_URL = new URL(`./ffmpeg-core.js?v=${FF_VERSION}`, document.baseURI).href;
-const WASM_URL = new URL(`./ffmpeg-core.wasm?v=${FF_VERSION}`, document.baseURI).href;
-const WORKER_URL = new URL(`./ffmpeg-core.worker.js?v=${FF_VERSION}`, document.baseURI).href;
+let ffmpegInstance = null;
+let ffmpegPromise = null;
+let ffmpegFetchFile = null;
+let ffmpegScriptPromise = null;
 
-const ffmpeg = new FfmpegClass();
-
-const handleFfmpegLog = (event) => {
-  const message = typeof event === "string" ? event : event?.message;
-  if (message) {
-    console.log(`[ffmpeg] ${message}`);
-  }
+const loadFfmpegGlobal = () => {
+	if (!ffmpegScriptPromise) {
+		ffmpegScriptPromise = new Promise((resolve, reject) => {
+			if (globalThis.FFmpegWASM?.FFmpeg) {
+				resolve(globalThis.FFmpegWASM);
+				return;
+			}
+			const script = document.createElement("script");
+			script.src = "./ffmpeg.min.js";
+			script.async = true;
+			script.onload = () => {
+				if (globalThis.FFmpegWASM?.FFmpeg) {
+					resolve(globalThis.FFmpegWASM);
+				} else {
+					reject(new Error("FFmpeg global script loaded without exports"));
+				}
+			};
+			script.onerror = () => reject(new Error("Failed to load FFmpeg script"));
+			document.head.appendChild(script);
+		});
+	}
+	return ffmpegScriptPromise;
 };
 
-const handleFfmpegProgress = (payload) => {
-  const ratioValue = typeof payload === "number"
-    ? payload
-    : Number(payload?.ratio ?? payload?.progress ?? 0);
-  if (Number.isFinite(ratioValue) && ratioValue > 0 && ratioValue <= 1) {
-    setProgress(ratioValue * 100, `${Math.round(ratioValue * 100)}%`);
-  }
+const loadFfmpegModule = async () => {
+	const mod = await loadFfmpegGlobal();
+	if (mod?.FFmpeg) return mod;
+	throw new Error("FFmpeg module missing FFmpeg export");
 };
 
-if (typeof ffmpeg.on === "function") {
-  ffmpeg.on("log", handleFfmpegLog);
-  ffmpeg.on("progress", handleFfmpegProgress);
-}
+const ensureFFmpeg = async () => {
+	if (ffmpegInstance) return ffmpegInstance;
+	if (!ffmpegPromise) {
+		ffmpegPromise = (async () => {
+			const { FFmpeg } = await loadFfmpegModule();
+			setProcessingBadge("Loading engine…", true);
+			const instance = new FFmpeg();
+			instance.on("log", ({ message }) => console.debug("[ffmpeg]", message));
+			instance.on("progress", ({ ratio = 0 }) => {
+				const pct = Number.isFinite(ratio) ? ratio : 0;
+				updateProgress(10 + pct * 80, `FFmpeg ${(pct * 100).toFixed(0)}%`);
+			});
+			await instance.load({
+				coreURL: "./ffmpeg-core.js",
+				wasmURL: "./ffmpeg-core.wasm",
+				workerURL: "./ffmpeg-core.worker.js",
+			});
+			ffmpegFetchFile = async (file) => new Uint8Array(await file.arrayBuffer());
+			ffmpegInstance = instance;
+			setProcessingBadge("Ready", false);
+			return instance;
+		})().catch((err) => {
+			ffmpegPromise = null;
+			setProcessingBadge("Error", false);
+			throw err;
+		});
+	}
+	return ffmpegPromise;
+};
 
-// Initialize WASM module
-let wasmReady = false;
-init().then(() => {
-  wasmReady = true;
-  console.log("✅ Rust WASM module loaded");
-}).catch(err => {
-  console.error("❌ Failed to load Rust WASM:", err);
-});
-
-// DOM elements
 const videoInput = document.getElementById("videoInput");
-const processBtn = document.getElementById("processBtn");
-const processBatchBtn = document.getElementById("processBatchBtn");
+const preview = document.getElementById("preview");
+const emptyState = document.getElementById("emptyState");
+const videoShell = document.getElementById("videoShell");
 const statusEl = document.getElementById("status");
-const fileCountEl = document.getElementById("fileCount");
+const processingBadge = document.getElementById("processingBadge");
 const progressEl = document.getElementById("progress");
 const progressBar = document.getElementById("progressBar");
+const fileCountEl = document.getElementById("fileCount");
+const fileList = document.getElementById("fileList");
+const fileListItems = document.getElementById("fileListItems");
+const processBtn = document.getElementById("processBtn");
+const processBatchBtn = document.getElementById("processBatchBtn");
+const seekBar = document.getElementById("seekBar");
+const seekProgress = document.getElementById("seekProgress");
+const playBtn = document.getElementById("playBtn");
+const timeDisplay = document.getElementById("timeDisplay");
+const volumeBtn = document.getElementById("volumeBtn");
+const volumeSlider = document.querySelector(".volume-slider");
+const volumeFill = document.getElementById("volumeFill");
+const timelineTrack = document.querySelector(".timeline-track");
+const timelineContent = document.querySelector(".timeline-content");
+const trimStartHandle = document.getElementById("trimStart");
+const trimEndHandle = document.getElementById("trimEnd");
+const playhead = document.getElementById("playhead");
+const startLabel = document.getElementById("startLabel");
+const endLabel = document.getElementById("endLabel");
+const startInput = document.getElementById("startInput");
+const endInput = document.getElementById("endInput");
 const resolutionSelect = document.getElementById("resolutionSelect");
 const presetSelect = document.getElementById("presetSelect");
 const crfInput = document.getElementById("crfInput");
 const crfValue = document.getElementById("crfValue");
-const startInput = document.getElementById("startInput");
-const endInput = document.getElementById("endInput");
-const startLabel = document.getElementById("startLabel");
-const endLabel = document.getElementById("endLabel");
 const cropWidthInput = document.getElementById("cropWidth");
 const cropHeightInput = document.getElementById("cropHeight");
 const cropXInput = document.getElementById("cropX");
 const cropYInput = document.getElementById("cropY");
-const preview = document.getElementById("preview");
-const videoShell = document.getElementById("videoShell");
 const cropOverlay = document.getElementById("cropOverlay");
-const emptyState = document.getElementById("emptyState");
-const playBtn = document.getElementById("playBtn");
-const timeDisplay = document.getElementById("timeDisplay");
-const trimStart = document.getElementById("trimStart");
-const trimEnd = document.getElementById("trimEnd");
-const playhead = document.getElementById("playhead");
-const fileList = document.getElementById("fileList");
-const fileListItems = document.getElementById("fileListItems");
+const cropHandles = Array.from(document.querySelectorAll(".crop-handle"));
 
-// State
-let ffmpegReady = false;
-let activePreviewUrl = null;
-let videoDuration = 0;
-let cropState = { x: 0, y: 0, w: 100, h: 100 };
-let pointerState = null;
-let trimState = { start: 0, end: 100 };
-let isDraggingTrim = null;
-let isPlaying = false;
-let currentFiles = [];
-let currentFileIndex = 0;
-
-// FFmpeg instance is created above so we can keep a single worker alive
-
-// Initialize FFmpeg
-async function ensureFfmpeg() {
-  if (ffmpegReady) return;
-  setStatus("Loading FFmpeg (~25 MB)...");
-  await ffmpeg.load({
-    coreURL: CORE_URL,
-    wasmURL: WASM_URL,
-    workerURL: WORKER_URL,
-  });
-  ffmpegReady = true;
-  setStatus("FFmpeg loaded.");
-}
-
-// Utility functions
-const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
-
-const prettySize = (bytes) => {
-  if (bytes < 1024) return `${bytes} B`;
-  const kb = bytes / 1024;
-  if (kb < 1024) return `${kb.toFixed(1)} KB`;
-  return `${(kb / 1024).toFixed(2)} MB`;
+const state = {
+	files: [],
+	activeIndex: -1,
+	objectUrl: null,
+	duration: 0,
+	width: 0,
+	height: 0,
+	trimStart: 0,
+	trimEnd: 0,
+	trimRatioStart: 0,
+	trimRatioEnd: 1,
 };
 
-const setStatus = (message) => {
-  statusEl.innerHTML = message ? `<strong>Status:</strong> ${message}` : "";
+const cropState = {
+	x: 0,
+	y: 0,
+	width: 0,
+	height: 0,
+	ratioX: 0,
+	ratioY: 0,
+	ratioWidth: 1,
+	ratioHeight: 1,
 };
 
-const setProgress = (percent, label = "") => {
-  const pct = Math.max(0, Math.min(100, percent));
-  progressEl.style.opacity = 1;
-  progressBar.style.width = `${pct}%`;
-  progressBar.textContent = label || `${pct}%`;
+let isProcessing = false;
+let activeTrimDrag = null;
+let activeCropDrag = null;
+
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+const setStatus = (message, isError = false) => {
+	if (!message) {
+		statusEl.textContent = "";
+		setProcessingBadge(isProcessing ? "Processing…" : "Idle", isProcessing);
+		return;
+	}
+	const prefix = isError ? "Error" : "Status";
+	statusEl.innerHTML = `<strong>${prefix}:</strong> ${message}`;
+	setProcessingBadge(isError ? "Error" : "Active", true);
+};
+
+const updateProgress = (percent, label = "") => {
+	const pct = clamp(percent, 0, 100);
+	progressEl.style.opacity = 1;
+	progressBar.style.width = `${pct}%`;
+	progressBar.textContent = label || `${Math.round(pct)}%`;
 };
 
 const resetProgress = () => {
-  progressEl.style.opacity = 0;
-  progressBar.style.width = "0%";
-  progressBar.textContent = "";
+	progressEl.style.opacity = 0;
+	progressBar.style.width = "0%";
+	progressBar.textContent = "";
 };
 
-const parseTimecode = (value) => {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const parts = trimmed.split(":").map((p) => Number(p));
-  if (parts.some((p) => Number.isNaN(p) || p < 0)) return null;
-  let seconds = 0;
-  for (let i = 0; i < parts.length; i += 1) {
-    seconds = seconds * 60 + parts[i];
-  }
-  return seconds;
+const setProcessingBadge = (text, isActive = false) => {
+	if (!processingBadge) return;
+	processingBadge.textContent = text;
+	processingBadge.classList.toggle("active", isActive);
 };
 
-const toTimecode = (seconds) => {
-  const hrs = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  const parts = hrs > 0 ? [hrs, mins, secs] : [mins, secs];
-  return parts.map((p) => p.toString().padStart(2, "0")).join(":");
+const toggleProcessing = (disabled) => {
+	processBtn.disabled = disabled;
+	processBatchBtn.disabled = disabled;
+	videoInput.disabled = disabled;
+	isProcessing = disabled;
+	setProcessingBadge(disabled ? "Processing…" : "Idle", disabled);
+};
+
+const sanitizeFilename = (name) => {
+	const base = name.split(".").slice(0, -1).join(".") || name;
+	return base.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+};
+
+const getMimeForExt = (ext) => {
+	if (ext === "webm") return "video/webm";
+	if (ext === "ogg" || ext === "ogv") return "video/ogg";
+	return "video/mp4";
+};
+
+const downloadBlob = (uint8, filename, mime) => {
+	const blob = new Blob([uint8], { type: mime });
+	const url = URL.createObjectURL(blob);
+	const anchor = document.createElement("a");
+	anchor.href = url;
+	anchor.download = filename;
+	document.body.appendChild(anchor);
+	anchor.click();
+	document.body.removeChild(anchor);
+	setTimeout(() => URL.revokeObjectURL(url), 1500);
+};
+
+const formatSeconds = (seconds) => {
+	try {
+		return format_timestamp(seconds || 0);
+	} catch (err) {
+		console.warn("format_seconds fallback", err);
+		return `${seconds.toFixed(2)}s`;
+	}
+};
+
+const parseSeconds = (value) => {
+	if (!value) return 0;
+	try {
+		return parse_timestamp(value);
+	} catch {
+		return Number(value) || 0;
+	}
+};
+
+const getRenderedVideoRect = () => {
+	const videoRect = preview.getBoundingClientRect();
+	if (!state.width || !state.height) return videoRect;
+	const intrinsicAspect = state.width / state.height;
+	const elementAspect = videoRect.width / videoRect.height;
+	let width = videoRect.width;
+	let height = videoRect.height;
+	let offsetX = 0;
+	let offsetY = 0;
+
+	if (elementAspect > intrinsicAspect) {
+		width = videoRect.height * intrinsicAspect;
+		offsetX = (videoRect.width - width) / 2;
+	} else if (elementAspect < intrinsicAspect) {
+		height = videoRect.width / intrinsicAspect;
+		offsetY = (videoRect.height - height) / 2;
+	}
+
+	return {
+		left: videoRect.left + offsetX,
+		top: videoRect.top + offsetY,
+		width,
+		height,
+	};
+};
+
+const clientToIntrinsic = (clientX, clientY) => {
+	const rect = getRenderedVideoRect();
+	const relX = clamp(clientX - rect.left, 0, rect.width);
+	const relY = clamp(clientY - rect.top, 0, rect.height);
+	const x = (relX / rect.width) * state.width;
+	const y = (relY / rect.height) * state.height;
+	return { x, y };
+};
+
+const updateVolumeUI = () => {
+	const volume = preview.muted ? 0 : preview.volume;
+	volumeFill.style.width = `${volume * 100}%`;
+	volumeBtn.textContent = preview.muted || volume === 0 ? "🔇" : "🔊";
+};
+
+const updatePlayState = () => {
+	playBtn.textContent = preview.paused ? "▶" : "❚❚";
 };
 
 const updateTimeDisplay = () => {
-  const current = preview.currentTime || 0;
-  const duration = videoDuration || 0;
-  timeDisplay.textContent = `${toTimecode(current)} / ${toTimecode(duration)}`;
-  
-  if (duration > 0) {
-    const percent = (current / duration) * 100;
-    const seekProgress = document.getElementById("seekProgress");
-    if (seekProgress) seekProgress.style.width = `${percent}%`;
-    playhead.style.left = `${percent}%`;
-  }
+	const current = formatSeconds(preview.currentTime || 0);
+	const duration = formatSeconds(state.duration || 0);
+	timeDisplay.textContent = `${current} / ${duration}`;
 };
 
-const updateTrimHandles = () => {
-  trimStart.style.left = `${trimState.start}%`;
-  trimEnd.style.left = `${trimState.end}%`;
-  
-  const startSec = (trimState.start / 100) * videoDuration;
-  const endSec = (trimState.end / 100) * videoDuration;
-  
-  startLabel.textContent = toTimecode(startSec);
-  endLabel.textContent = toTimecode(endSec);
-  
-  startInput.value = toTimecode(startSec);
-  endInput.value = trimState.end >= 99.5 ? "" : toTimecode(endSec);
-  
-  // Update timeline content width
-  const timelineContent = document.querySelector(".timeline-content");
-  if (timelineContent) {
-    timelineContent.style.left = `${trimState.start}%`;
-    timelineContent.style.right = `${100 - trimState.end}%`;
-  }
+const updateSeekUI = () => {
+	if (!state.duration) {
+		seekProgress.style.width = "0%";
+		playhead.style.left = "0%";
+		return;
+	}
+	const ratio = clamp(preview.currentTime / state.duration, 0, 1);
+	seekProgress.style.width = `${ratio * 100}%`;
+	playhead.style.left = `${ratio * 100}%`;
 };
 
-const applyCropOverlay = () => {
-  const shellRect = videoShell.getBoundingClientRect();
-  if (!shellRect.width || !shellRect.height) return;
-  const { x, y, w, h } = cropState;
-  cropOverlay.style.left = `${x}%`;
-  cropOverlay.style.top = `${y}%`;
-  cropOverlay.style.width = `${w}%`;
-  cropOverlay.style.height = `${h}%`;
-
-  if (preview.videoWidth && preview.videoHeight) {
-    const pxW = Math.round((w / 100) * preview.videoWidth);
-    const pxH = Math.round((h / 100) * preview.videoHeight);
-    const pxX = Math.round((x / 100) * preview.videoWidth);
-    const pxY = Math.round((y / 100) * preview.videoHeight);
-    cropWidthInput.value = pxW;
-    cropHeightInput.value = pxH;
-    cropXInput.value = pxX;
-    cropYInput.value = pxY;
-  }
+const syncTrimInputs = () => {
+	startInput.value = formatSeconds(state.trimStart);
+	endInput.value = formatSeconds(state.trimEnd);
+	startLabel.textContent = startInput.value;
+	endLabel.textContent = endInput.value;
 };
 
-const safeUnlink = async (path) => {
-  if (!ffmpegReady) return;
-  try {
-    await ffmpeg.deleteFile(path);
-  } catch (err) {
-    // File might not exist; ignore.
-  }
+const updateTrimRatios = () => {
+	if (!state.duration) return;
+	state.trimRatioStart = clamp(state.trimStart / state.duration, 0, 1);
+	state.trimRatioEnd = clamp(state.trimEnd / state.duration, 0, 1);
 };
 
-// File handling
-const renderFileInfo = async () => {
-  const files = Array.from(videoInput?.files || []);
-  
-  if (files.length === 0) {
-    fileCountEl.textContent = "No videos selected.";
-    if (activePreviewUrl) {
-      URL.revokeObjectURL(activePreviewUrl);
-      activePreviewUrl = null;
-    }
-    preview.style.display = "none";
-    preview.removeAttribute("src");
-    videoShell.style.display = "none";
-    cropOverlay.style.display = "none";
-    emptyState.style.display = "flex";
-    if (fileList) fileList.style.display = "none";
-    if (processBatchBtn) processBatchBtn.style.display = "none";
-    currentFiles = [];
-    currentFileIndex = 0;
-    return;
-  }
-
-  // Store files for processing
-  currentFiles = files.map(file => ({ file, name: file.name, size: file.size }));
-  
-  // Show batch processing UI if multiple files
-  if (currentFiles.length > 1 && processBatchBtn && fileList && fileListItems) {
-    processBatchBtn.style.display = "block";
-    fileList.style.display = "block";
-    
-    let listHTML = `<p style="margin-bottom: 8px;"><strong>${currentFiles.length} files ready:</strong></p>`;
-    currentFiles.forEach((info) => {
-      listHTML += `<div style="padding: 4px 0; border-bottom: 1px solid var(--border);">
-        🎬 ${info.name} (${prettySize(info.size)})
-      </div>`;
-    });
-    fileListItems.innerHTML = listHTML;
-    
-    const totalSize = currentFiles.reduce((sum, f) => sum + f.size, 0);
-    fileCountEl.textContent = `${currentFiles.length} files • ${prettySize(totalSize)}`;
-  } else {
-    if (processBatchBtn) processBatchBtn.style.display = "none";
-    if (fileList) fileList.style.display = "none";
-    fileCountEl.textContent = `${currentFiles[0].name} • ${prettySize(currentFiles[0].size)}`;
-  }
-  
-  // Load first file for preview
-  loadFilePreview(0);
+const updateTrimUI = () => {
+	if (!state.duration) return;
+	const startPct = (state.trimStart / state.duration) * 100;
+	const endPct = (state.trimEnd / state.duration) * 100;
+	const handleOffset = 5; // keep handles inside the track even at edges
+	trimStartHandle.style.left = `calc(${startPct}% - ${handleOffset}px)`;
+	trimStartHandle.style.right = "auto";
+	trimEndHandle.style.left = `calc(${endPct}% - ${handleOffset}px)`;
+	trimEndHandle.style.right = "auto";
+	timelineContent.style.left = `${startPct}%`;
+	timelineContent.style.right = `${100 - endPct}%`;
+	syncTrimInputs();
 };
 
-const loadFilePreview = (index) => {
-  if (index < 0 || index >= currentFiles.length) return;
-  
-  currentFileIndex = index;
-  const file = currentFiles[index].file;
-  
-  if (activePreviewUrl) URL.revokeObjectURL(activePreviewUrl);
-  activePreviewUrl = URL.createObjectURL(file);
-  preview.src = activePreviewUrl;
-  preview.style.display = "block";
-  videoShell.style.display = "block";
-  emptyState.style.display = "none";
+const syncCropInputsFromState = () => {
+	cropWidthInput.value = Math.round(cropState.width);
+	cropHeightInput.value = Math.round(cropState.height);
+	cropXInput.value = Math.round(cropState.x);
+	cropYInput.value = Math.round(cropState.y);
 };
 
-// Video processing
-const handleProcess = async () => {
-  if (currentFiles.length === 0) {
-    setStatus("Add a video to begin.");
-    return;
-  }
-
-  const file = currentFiles[currentFileIndex].file;
-  await processVideo(file, currentFileIndex);
+const updateCropRatios = () => {
+	if (!state.width || !state.height) return;
+	cropState.ratioX = clamp(cropState.x / state.width, 0, 1);
+	cropState.ratioY = clamp(cropState.y / state.height, 0, 1);
+	cropState.ratioWidth = clamp(cropState.width / state.width, 0, 1);
+	cropState.ratioHeight = clamp(cropState.height / state.height, 0, 1);
 };
 
-const handleBatchProcess = async () => {
-  if (currentFiles.length === 0) {
-    setStatus("Add videos to begin.");
-    return;
-  }
-
-  processBtn.disabled = true;
-  if (processBatchBtn) processBatchBtn.disabled = true;
-  
-  for (let i = 0; i < currentFiles.length; i++) {
-    setStatus(`Processing file ${i + 1} of ${currentFiles.length}...`);
-    await processVideo(currentFiles[i].file, i);
-    
-    // Small delay between files
-    await new Promise(resolve => setTimeout(resolve, 500));
-  }
-  
-  setStatus(`Batch complete! Processed ${currentFiles.length} files.`);
-  processBtn.disabled = false;
-  if (processBatchBtn) processBatchBtn.disabled = false;
-  setTimeout(resetProgress, 2000);
+const updateCropOverlay = () => {
+	if (!state.width || !state.height) {
+		cropOverlay.style.display = "none";
+		return;
+	}
+	const renderRect = getRenderedVideoRect();
+	const shellRect = videoShell.getBoundingClientRect();
+	const scaleX = renderRect.width / state.width;
+	const scaleY = renderRect.height / state.height;
+	const left = renderRect.left - shellRect.left + cropState.x * scaleX;
+	const top = renderRect.top - shellRect.top + cropState.y * scaleY;
+	cropOverlay.style.display = "block";
+	cropOverlay.style.left = `${left}px`;
+	cropOverlay.style.top = `${top}px`;
+	cropOverlay.style.width = `${cropState.width * scaleX}px`;
+	cropOverlay.style.height = `${cropState.height * scaleY}px`;
 };
 
-const processVideo = async (file, index) => {
-  const startSec = parseTimecode(startInput.value);
-  const endSec = parseTimecode(endInput.value);
-  const videoDuration = preview.duration || 0;
-  
-  // Validate trim parameters using Rust WASM
-  if (wasmReady && startSec !== null && endSec !== null) {
-    const trimValidation = validate_trim(startSec, endSec, videoDuration);
-    if (!trimValidation.is_valid) {
-      setStatus(`Trim error: ${trimValidation.error}`);
-      return;
-    }
-  } else if (startSec !== null && endSec !== null && endSec <= startSec) {
-    setStatus("Trim end must be after trim start.");
-    return;
-  }
+const applyCropState = (patch) => {
+	if (!state.width || !state.height) return;
+	const next = {
+		x: clamp(patch.x ?? cropState.x, 0, state.width),
+		y: clamp(patch.y ?? cropState.y, 0, state.height),
+		width: clamp(patch.width ?? cropState.width, 64, state.width),
+		height: clamp(patch.height ?? cropState.height, 64, state.height),
+	};
+	next.width = Math.min(next.width, state.width - next.x);
+	next.height = Math.min(next.height, state.height - next.y);
 
-  const naturalW = preview.videoWidth || 0;
-  const naturalH = preview.videoHeight || 0;
-  let cropPx = null;
-  
-  if (naturalW && naturalH && (cropState.w < 99 || cropState.h < 99)) {
-    const rawW = Math.max(1, Math.round((cropState.w / 100) * naturalW));
-    const rawH = Math.max(1, Math.round((cropState.h / 100) * naturalH));
-    const rawX = Math.max(0, Math.round((cropState.x / 100) * naturalW));
-    const rawY = Math.max(0, Math.round((cropState.y / 100) * naturalH));
-    
-    // Validate crop parameters using Rust WASM
-    if (wasmReady) {
-      const cropValidation = validate_crop(rawX, rawY, rawW, rawH, naturalW, naturalH);
-      if (!cropValidation.is_valid) {
-        setStatus(`Crop error: ${cropValidation.error}`);
-        return;
-      }
-      // Use validated dimensions from Rust (ensures even numbers for H.264)
-      cropPx = {
-        w: cropValidation.width,
-        h: cropValidation.height,
-        x: cropValidation.x,
-        y: cropValidation.y
-      };
-    } else {
-      // Fallback without Rust validation
-      cropPx = {
-        w: rawW % 2 === 0 ? rawW : rawW - 1,
-        h: rawH % 2 === 0 ? rawH : rawH - 1,
-        x: rawX,
-        y: rawY
-      };
-    }
-  }
+	const validated = validate_crop(
+		Math.round(next.x),
+		Math.round(next.y),
+		Math.round(next.width),
+		Math.round(next.height),
+		state.width,
+		state.height
+	);
 
-  processBtn.disabled = true;
-  resetProgress();
-  setStatus("Preparing WebAssembly pipeline...");
+	if (!validated.is_valid) {
+		if (validated.error) {
+			setStatus(validated.error, true);
+		}
+		return;
+	}
 
-  try {
-    await ensureFfmpeg();
-
-    const inputName = `input_${index}.mp4`;
-    const outputName = `output_${index}.mp4`;
-    await safeUnlink(inputName);
-    await safeUnlink(outputName);
-
-    setStatus("Loading file into memory...");
-    await ffmpeg.writeFile(inputName, await fetchFile(file));
-
-    // Determine scale dimensions
-    const scaleMap = {
-      "1080": [1920, 1080],
-      "720": [1280, 720],
-      "480": [854, 480],
-    };
-    const resChoice = resolutionSelect.value;
-    const scaleW = (resChoice !== "source" && scaleMap[resChoice]) ? scaleMap[resChoice][0] : null;
-    const scaleH = (resChoice !== "source" && scaleMap[resChoice]) ? scaleMap[resChoice][1] : null;
-
-    // Generate FFmpeg filters using Rust WASM
-    let filterString = "";
-    if (wasmReady && (cropPx || scaleW)) {
-      const cropJs = cropPx ? {
-        x: cropPx.x,
-        y: cropPx.y,
-        width: cropPx.w,
-        height: cropPx.h,
-        is_valid: true,
-        error: null
-      } : null;
-      
-      filterString = generate_ffmpeg_filters(cropJs, scaleW, scaleH);
-      console.log(`🦀 Rust-generated filters: ${filterString}`);
-    } else {
-      // Fallback: manually build filters
-      const filters = [];
-      if (cropPx) {
-        filters.push(`crop=${cropPx.w}:${cropPx.h}:${cropPx.x}:${cropPx.y}`);
-      }
-      if (scaleW && scaleH) {
-        filters.push(`scale=${scaleW}:${scaleH}`);
-      }
-      filterString = filters.length ? filters.join(",") : "null";
-    }
-
-    const vfArgs = (filterString && filterString !== "null") ? ["-vf", filterString] : [];
-
-    const args = [
-      ...(startSec !== null ? ["-ss", toTimecode(startSec)] : []),
-      "-i",
-      inputName,
-      ...(endSec !== null ? ["-to", toTimecode(endSec)] : []),
-      ...vfArgs,
-      "-c:v",
-      "libx264",
-      "-preset",
-      presetSelect.value,
-      "-crf",
-      crfInput.value,
-      "-c:a",
-      "aac",
-      "-b:a",
-      "128k",
-      "-movflags",
-      "faststart",
-      outputName,
-    ];
-
-    setStatus("Encoding with FFmpeg...");
-    setProgress(10, "Encoding...");
-    await ffmpeg.exec(args);
-
-    const data = await ffmpeg.readFile(outputName);
-    const outputBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
-    const url = URL.createObjectURL(new Blob([outputBuffer], { type: "video/mp4" }));
-    
-    const baseName = file.name.replace(/\.[^/.]+$/, "");
-    const filename = `${baseName}-compressed-${Date.now()}.mp4`;
-
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.style.display = "none";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-
-    // Update preview with processed video (only for single file)
-    if (currentFiles.length === 1) {
-      if (activePreviewUrl) URL.revokeObjectURL(activePreviewUrl);
-      activePreviewUrl = url;
-      preview.src = url;
-      preview.load();
-    }
-
-    setStatus(`✓ Saved ${filename}`);
-    setProgress(100, "Done");
-    
-    // Cleanup
-    await safeUnlink(inputName);
-    await safeUnlink(outputName);
-  } catch (err) {
-    console.error(err);
-    setStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
-  } finally {
-    if (currentFiles.length === 1) {
-      processBtn.disabled = false;
-    }
-    if (currentFiles.length > 1 && index === currentFiles.length - 1) {
-      setTimeout(resetProgress, 800);
-    }
-  }
+	cropState.x = validated.x;
+	cropState.y = validated.y;
+	cropState.width = validated.width;
+	cropState.height = validated.height;
+	updateCropRatios();
+	syncCropInputsFromState();
+	updateCropOverlay();
 };
 
-// Event listeners
-videoInput.addEventListener("change", () => {
-  renderFileInfo();
-  setStatus("");
+const initCropState = () => {
+	cropState.x = 0;
+	cropState.y = 0;
+	cropState.width = state.width;
+	cropState.height = state.height;
+	updateCropRatios();
+	syncCropInputsFromState();
+	updateCropOverlay();
+};
+
+const cropIsActive = (metaWidth = state.width, metaHeight = state.height) => {
+	if (!metaWidth || !metaHeight) return false;
+	return !(
+		Math.round(cropState.x) === 0 &&
+		Math.round(cropState.y) === 0 &&
+		Math.round(cropState.width) >= metaWidth &&
+		Math.round(cropState.height) >= metaHeight
+	);
+};
+
+const deriveCropForMeta = (meta, useRatios) => {
+	if (!meta.width || !meta.height) return null;
+	if (!cropIsActive()) return null;
+	if (!useRatios) {
+		return validate_crop(
+			Math.round(cropState.x),
+			Math.round(cropState.y),
+			Math.round(cropState.width),
+			Math.round(cropState.height),
+			meta.width,
+			meta.height
+		);
+	}
+	const x = Math.round(cropState.ratioX * meta.width);
+	const y = Math.round(cropState.ratioY * meta.height);
+	const width = Math.round(cropState.ratioWidth * meta.width);
+	const height = Math.round(cropState.ratioHeight * meta.height);
+	return validate_crop(x, y, width, height, meta.width, meta.height);
+};
+
+const deriveTrimForDuration = (duration, useRatios) => {
+	if (!duration || duration <= 0) return null;
+	let start = state.trimStart;
+	let end = state.trimEnd;
+	if (useRatios) {
+		start = duration * state.trimRatioStart;
+		end = duration * state.trimRatioEnd;
+	}
+	start = clamp(start, 0, Math.max(duration - 0.1, 0));
+	end = clamp(end, start + 0.1, duration);
+	return validate_trim(start, end, duration);
+};
+
+const resolveScaleTarget = (meta) => {
+	if (!meta.width || !meta.height) return { width: undefined, height: undefined };
+	const choice = resolutionSelect.value;
+	if (choice === "source") return { width: undefined, height: undefined };
+	const targetHeight = Number(choice);
+	if (!targetHeight) return { width: undefined, height: undefined };
+	let height = Math.min(targetHeight, meta.height);
+	height -= height % 2;
+	if (height < 2) height = 2;
+	let width = Math.round(height * (meta.width / meta.height));
+	width -= width % 2;
+	width = Math.min(width, meta.width - (meta.width % 2));
+	if (width < 2) width = 2;
+	if (width === meta.width && height === meta.height) {
+		return { width: undefined, height: undefined };
+	}
+	return { width, height };
+};
+
+const determineOutputExt = (info) => {
+	const ext = (info?.extension || "mp4").toLowerCase();
+	const codec = info?.estimated_codec || "";
+	const hasAv1 = /av1/i.test(codec);
+	const hasVp9 = /vp9/i.test(codec) || ["webm", "mkv"].includes(ext);
+	const hasH264 = /h\.264|h264/i.test(codec) || ["mp4", "mov", "m4v", "avi"].includes(ext);
+	return get_recommended_format(hasH264, hasVp9, hasAv1);
+};
+
+const renderFileList = () => {
+	if (!state.files.length) {
+		fileList.style.display = "none";
+		processBatchBtn.style.display = "none";
+		fileCountEl.textContent = "No videos selected.";
+		fileListItems.innerHTML = "";
+		return;
+	}
+
+	const totalSize = state.files.reduce((sum, entry) => sum + entry.file.size, 0);
+	fileCountEl.textContent = `${state.files.length} video${state.files.length === 1 ? "" : "s"} • ${format_file_size(totalSize)}`;
+
+	fileList.style.display = state.files.length > 1 ? "block" : "none";
+	processBatchBtn.style.display = state.files.length > 1 ? "block" : "none";
+
+	fileListItems.innerHTML = state.files
+		.map((entry, index) => {
+			const active = index === state.activeIndex ? "data-active=\"true\"" : "";
+			return `<button type="button" data-index="${index}" ${active}>${entry.file.name}</button>`;
+		})
+		.join("");
+
+	Array.from(fileListItems.querySelectorAll("button")).forEach((btn) => {
+		btn.addEventListener("click", () => {
+			const idx = Number(btn.dataset.index);
+			if (!Number.isNaN(idx)) {
+				selectFile(idx);
+			}
+		});
+	});
+};
+
+const summarizeBatch = () => {
+	if (!state.files.length) return;
+	const batch = validate_video_batch(state.files.map((entry) => entry.info));
+	if (batch.unsupported > 0) {
+		setStatus(`${batch.unsupported} file${batch.unsupported === 1 ? "" : "s"} may be unsupported.`, true);
+	} else {
+		setStatus(`Ready to process ${batch.total} video${batch.total === 1 ? "" : "s"}.`);
+	}
+};
+
+const clearObjectUrl = () => {
+	if (state.objectUrl) {
+		URL.revokeObjectURL(state.objectUrl);
+		state.objectUrl = null;
+	}
+};
+
+const loadVideo = (file) =>
+	new Promise((resolve, reject) => {
+		clearObjectUrl();
+		const url = URL.createObjectURL(file);
+		state.objectUrl = url;
+		preview.src = url;
+		preview.load();
+
+		const onLoaded = () => {
+			preview.removeEventListener("loadedmetadata", onLoaded);
+			preview.removeEventListener("error", onError);
+			state.duration = preview.duration || 0;
+			state.width = preview.videoWidth || 0;
+			state.height = preview.videoHeight || 0;
+			state.trimStart = 0;
+			state.trimEnd = state.duration;
+			state.trimRatioStart = 0;
+			state.trimRatioEnd = 1;
+			updateTimeDisplay();
+			updateSeekUI();
+			updateTrimUI();
+			initCropState();
+			resolve();
+		};
+
+		const onError = () => {
+			preview.removeEventListener("loadedmetadata", onLoaded);
+			preview.removeEventListener("error", onError);
+			reject(new Error("Unable to load video metadata"));
+		};
+
+		preview.addEventListener("loadedmetadata", onLoaded);
+		preview.addEventListener("error", onError);
+	});
+
+const selectFile = async (index) => {
+	if (index < 0 || index >= state.files.length) return;
+	await ensureWasm();
+	state.activeIndex = index;
+	renderFileList();
+	const entry = state.files[index];
+	videoShell.style.display = "block";
+	emptyState.style.display = "none";
+	setStatus(`Loading ${entry.file.name}…`);
+	try {
+		await loadVideo(entry.file);
+		setStatus(`Loaded ${entry.file.name}`);
+	} catch (err) {
+		console.error(err);
+		setStatus(err.message || "Failed to load video", true);
+	}
+};
+
+const analyzeFile = async (file) => {
+	const basic = validate_video_file(file.name, file.size, file.type || "");
+	try {
+		const headerBytes = new Uint8Array(await file.slice(0, 2048).arrayBuffer());
+		return { file, info: analyze_video_header(file.name, headerBytes), header: headerBytes };
+	} catch (err) {
+		console.warn("Header analysis failed", err);
+		return { file, info: basic };
+	}
+};
+
+const handleFileChange = async (event) => {
+	const files = Array.from(event.target.files || []);
+	if (!files.length) {
+		setStatus("No files selected.");
+		return;
+	}
+	await ensureWasm();
+	resetProgress();
+	setStatus("Analyzing files…");
+	const analyzed = [];
+	for (let i = 0; i < files.length; i += 1) {
+		const entry = await analyzeFile(files[i]);
+		analyzed.push(entry);
+	}
+	state.files = analyzed;
+	renderFileList();
+	summarizeBatch();
+	selectFile(0);
+};
+
+const handleSeek = (event) => {
+	if (!state.duration) return;
+	const rect = seekBar.getBoundingClientRect();
+	const ratio = clamp((event.clientX - rect.left) / rect.width, 0, 1);
+	preview.currentTime = ratio * state.duration;
+	updateSeekUI();
+};
+
+const startTrimDrag = (handle, event) => {
+	if (!state.duration) return;
+	event.preventDefault();
+	activeTrimDrag = { handle };
+	window.addEventListener("pointermove", onTrimDrag);
+	window.addEventListener("pointerup", stopTrimDrag, { once: true });
+};
+
+const onTrimDrag = (event) => {
+	if (!activeTrimDrag || !state.duration) return;
+	const rect = timelineTrack.getBoundingClientRect();
+	const ratio = clamp((event.clientX - rect.left) / rect.width, 0, 1);
+	const time = ratio * state.duration;
+	if (activeTrimDrag.handle === "start") {
+		state.trimStart = Math.min(time, state.trimEnd - 0.1);
+	} else {
+		state.trimEnd = Math.max(time, state.trimStart + 0.1);
+	}
+	updateTrimRatios();
+	updateTrimUI();
+};
+
+const stopTrimDrag = () => {
+	activeTrimDrag = null;
+	window.removeEventListener("pointermove", onTrimDrag);
+};
+
+const startCropDrag = (mode, event) => {
+	if (!state.width || !state.height) return;
+	event.preventDefault();
+	const pointer = clientToIntrinsic(event.clientX, event.clientY);
+	activeCropDrag = {
+		mode,
+		pointerStart: pointer,
+		cropStart: { ...cropState },
+	};
+	window.addEventListener("pointermove", onCropDragMove);
+	window.addEventListener("pointerup", stopCropDrag, { once: true });
+};
+
+const onCropDragMove = (event) => {
+	if (!activeCropDrag) return;
+	event.preventDefault();
+	const pointer = clientToIntrinsic(event.clientX, event.clientY);
+	const start = activeCropDrag.cropStart;
+	const minSize = 64;
+	const next = { ...start };
+
+	if (activeCropDrag.mode === "move") {
+		const dx = pointer.x - activeCropDrag.pointerStart.x;
+		const dy = pointer.y - activeCropDrag.pointerStart.y;
+		next.x = clamp(start.x + dx, 0, state.width - start.width);
+		next.y = clamp(start.y + dy, 0, state.height - start.height);
+	} else {
+		let left = start.x;
+		let right = start.x + start.width;
+		let top = start.y;
+		let bottom = start.y + start.height;
+
+		if (activeCropDrag.mode.includes("t")) {
+			top = clamp(pointer.y, 0, bottom - minSize);
+		}
+		if (activeCropDrag.mode.includes("b")) {
+			bottom = clamp(pointer.y, top + minSize, state.height);
+		}
+		if (activeCropDrag.mode.includes("l")) {
+			left = clamp(pointer.x, 0, right - minSize);
+		}
+		if (activeCropDrag.mode.includes("r")) {
+			right = clamp(pointer.x, left + minSize, state.width);
+		}
+
+		next.x = left;
+		next.y = top;
+		next.width = Math.max(minSize, right - left);
+		next.height = Math.max(minSize, bottom - top);
+	}
+
+	applyCropState(next);
+};
+
+const stopCropDrag = () => {
+	activeCropDrag = null;
+	window.removeEventListener("pointermove", onCropDragMove);
+};
+
+const getProcessingPlan = (meta, useRatios) => {
+	const trim = deriveTrimForDuration(meta.duration, useRatios);
+	if (trim && !trim.is_valid) {
+		throw new Error(trim.error || "Trim settings invalid");
+	}
+	const crop = deriveCropForMeta(meta, useRatios);
+	if (crop && !crop.is_valid) {
+		throw new Error(crop.error || "Crop settings invalid");
+	}
+	const scale = resolveScaleTarget(meta);
+	const scaleWidth = Number.isFinite(scale.width) ? scale.width : undefined;
+	const scaleHeight = Number.isFinite(scale.height) ? scale.height : undefined;
+	const params = build_processing_params(
+		trim?.is_valid ? trim : null,
+		crop?.is_valid ? crop : null,
+		scaleWidth,
+		scaleHeight
+	);
+	if (!params.is_valid) {
+		throw new Error(params.errors?.join("; ") || "Processing parameters invalid");
+	}
+	return { trim, crop, scale, filters: params.ffmpeg_filters };
+};
+
+const exportWithFFmpeg = async (entry, meta, useRatios = false) => {
+	const ffmpeg = await ensureFFmpeg();
+	const plan = getProcessingPlan(meta, useRatios);
+	updateProgress(15, "Encoding…");
+	setProcessingBadge("Encoding…", true);
+	const inputExt = entry.info?.extension || entry.file.name.split(".").pop() || "mp4";
+	const inputName = `input-${Date.now()}-${sanitizeFilename(entry.file.name) || "video"}.${inputExt}`;
+	await ffmpeg.writeFile(inputName, await ffmpegFetchFile(entry.file));
+
+	const outputExt = determineOutputExt(entry.info);
+	const outputName = `output-${sanitizeFilename(entry.file.name) || "video"}.${outputExt}`;
+	const args = ["-y", "-i", inputName];
+
+	if (plan.trim?.is_valid) {
+		args.push("-ss", plan.trim.start_time.toFixed(3));
+		args.push("-to", plan.trim.end_time.toFixed(3));
+	}
+
+	if (plan.filters && plan.filters !== "null") {
+		args.push("-vf", plan.filters);
+	}
+
+	if (outputExt === "webm") {
+		args.push("-c:v", "libvpx-vp9");
+	} else {
+		args.push("-c:v", "libx264");
+		args.push("-movflags", "+faststart");
+	}
+
+	args.push("-preset", presetSelect.value || "medium");
+	args.push("-crf", String(crfInput.value || 25));
+	args.push("-c:a", "copy");
+	args.push(outputName);
+
+	setStatus(`Encoding ${entry.file.name}…`);
+
+	await ffmpeg.exec(args);
+	const data = await ffmpeg.readFile(outputName);
+	downloadBlob(data, outputName, getMimeForExt(outputExt));
+	await ffmpeg.deleteFile(inputName);
+	await ffmpeg.deleteFile(outputName);
+	setStatus(`Exported ${outputName}`);
+	updateProgress(100, "Done");
+	setProcessingBadge("Ready", false);
+};
+
+const probeMetadata = (file) =>
+	new Promise((resolve, reject) => {
+		const tempUrl = URL.createObjectURL(file);
+		const video = document.createElement("video");
+		video.preload = "metadata";
+		video.src = tempUrl;
+		video.muted = true;
+		const cleanup = () => {
+			URL.revokeObjectURL(tempUrl);
+			video.src = "";
+		};
+		video.addEventListener("loadedmetadata", () => {
+			const data = {
+				duration: video.duration || 0,
+				width: video.videoWidth || 0,
+				height: video.videoHeight || 0,
+			};
+			cleanup();
+			resolve(data);
+		});
+		video.addEventListener("error", () => {
+			cleanup();
+			reject(new Error("Unable to read video metadata"));
+		});
+	});
+
+const processActiveFile = async () => {
+	if (isProcessing) return;
+	const entry = state.files[state.activeIndex];
+	if (!entry) {
+		setStatus("Select a video first.", true);
+		return;
+	}
+	toggleProcessing(true);
+	resetProgress();
+	try {
+		await exportWithFFmpeg(entry, {
+			duration: state.duration,
+			width: state.width,
+			height: state.height,
+		});
+	} catch (err) {
+		console.error(err);
+		setStatus(err.message || "Failed to export", true);
+	} finally {
+		toggleProcessing(false);
+		setTimeout(resetProgress, 700);
+	}
+};
+
+const processBatch = async () => {
+	if (isProcessing || state.files.length === 0) return;
+	toggleProcessing(true);
+	resetProgress();
+	try {
+		for (let i = 0; i < state.files.length; i += 1) {
+			const entry = state.files[i];
+			setStatus(`Processing ${entry.file.name} (${i + 1}/${state.files.length})`);
+			let meta;
+			if (i === state.activeIndex) {
+				meta = { duration: state.duration, width: state.width, height: state.height };
+			} else {
+				meta = await probeMetadata(entry.file);
+			}
+			await exportWithFFmpeg(entry, meta, true);
+		}
+		setStatus("Batch export completed.");
+	} catch (err) {
+		console.error(err);
+		setStatus(err.message || "Batch processing failed", true);
+	} finally {
+		toggleProcessing(false);
+		setTimeout(resetProgress, 700);
+	}
+};
+
+const handleTrimInputChange = () => {
+	if (!state.duration) return;
+	const start = parseSeconds(startInput.value);
+	const end = parseSeconds(endInput.value || formatSeconds(state.duration));
+	const validated = validate_trim(start, end, state.duration);
+	if (!validated.is_valid) {
+		setStatus(validated.error || "Invalid trim values", true);
+		syncTrimInputs();
+		return;
+	}
+	state.trimStart = validated.start_time;
+	state.trimEnd = validated.end_time;
+	updateTrimRatios();
+	updateTrimUI();
+};
+
+const handleCropInputChange = () => {
+	if (!state.width || !state.height) return;
+	const next = {
+		width: Number(cropWidthInput.value) || state.width,
+		height: Number(cropHeightInput.value) || state.height,
+		x: Number(cropXInput.value) || 0,
+		y: Number(cropYInput.value) || 0,
+	};
+	applyCropState(next);
+};
+
+const handleVolumeInput = (event) => {
+	const rect = volumeSlider.getBoundingClientRect();
+	const ratio = clamp((event.clientX - rect.left) / rect.width, 0, 1);
+	preview.volume = ratio;
+	if (ratio > 0) preview.muted = false;
+	updateVolumeUI();
+};
+
+preview.addEventListener("play", updatePlayState);
+preview.addEventListener("pause", updatePlayState);
+preview.addEventListener("timeupdate", () => {
+	updateSeekUI();
+	updateTimeDisplay();
 });
-
-preview.addEventListener("loadedmetadata", () => {
-  videoDuration = Number.isFinite(preview.duration) ? preview.duration : 0;
-  trimState = { start: 0, end: 100 };
-  updateTrimHandles();
-  cropState = { x: 0, y: 0, w: 100, h: 100 };
-  cropOverlay.style.display = "block";
-  applyCropOverlay();
-  updateTimeDisplay();
-});
-
-preview.addEventListener("timeupdate", updateTimeDisplay);
-
-preview.addEventListener("play", () => {
-  isPlaying = true;
-  playBtn.textContent = "⏸";
-});
-
-preview.addEventListener("pause", () => {
-  isPlaying = false;
-  playBtn.textContent = "▶";
+preview.addEventListener("ended", () => {
+	preview.currentTime = state.trimStart;
+	preview.pause();
 });
 
 playBtn.addEventListener("click", () => {
-  if (!preview.src) return;
-  if (isPlaying) {
-    preview.pause();
-  } else {
-    preview.play();
-  }
+	if (!state.duration) return;
+	if (preview.paused) {
+		preview.play().catch((err) => setStatus(err.message || "Cannot play", true));
+	} else {
+		preview.pause();
+	}
 });
 
-// Seek bar interaction
-const seekBar = document.getElementById("seekBar");
-if (seekBar) {
-  seekBar.addEventListener("click", (e) => {
-    if (!videoDuration) return;
-    const rect = seekBar.getBoundingClientRect();
-    const percent = (e.clientX - rect.left) / rect.width;
-    preview.currentTime = percent * videoDuration;
-  });
-}
-
-// Volume control
-const volumeBtn = document.getElementById("volumeBtn");
-const volumeSlider = document.querySelector(".volume-slider");
-const volumeFill = document.getElementById("volumeFill");
-
-if (volumeSlider && volumeFill) {
-  volumeSlider.addEventListener("click", (e) => {
-    const rect = volumeSlider.getBoundingClientRect();
-    const percent = (e.clientX - rect.left) / rect.width;
-    preview.volume = Math.max(0, Math.min(1, percent));
-    volumeFill.style.width = `${percent * 100}%`;
-  });
-}
-
-if (volumeBtn) {
-  volumeBtn.addEventListener("click", () => {
-    preview.muted = !preview.muted;
-    volumeBtn.textContent = preview.muted ? "🔇" : "🔊";
-  });
-}
-
-crfInput.addEventListener("input", () => {
-  crfValue.textContent = crfInput.value;
+volumeBtn.addEventListener("click", () => {
+	preview.muted = !preview.muted;
+	updateVolumeUI();
 });
 
-startInput.addEventListener("change", () => {
-  const sec = clamp(parseTimecode(startInput.value) ?? 0, 0, videoDuration);
-  trimState.start = (sec / videoDuration) * 100;
-  updateTrimHandles();
-});
+volumeSlider.addEventListener("click", handleVolumeInput);
 
-endInput.addEventListener("change", () => {
-  const sec = parseTimecode(endInput.value);
-  if (sec !== null) {
-    trimState.end = Math.min((sec / videoDuration) * 100, 100);
-    updateTrimHandles();
-  }
-});
+seekBar.addEventListener("click", handleSeek);
 
-processBtn.addEventListener("click", handleProcess);
-if (processBatchBtn) {
-  processBatchBtn.addEventListener("click", handleBatchProcess);
-}
-
-// Timeline trim handles
-trimStart.addEventListener("pointerdown", (e) => {
-  e.preventDefault();
-  isDraggingTrim = "start";
-  window.addEventListener("pointermove", onTrimDrag);
-  window.addEventListener("pointerup", stopTrimDrag, { once: true });
-});
-
-trimEnd.addEventListener("pointerdown", (e) => {
-  e.preventDefault();
-  isDraggingTrim = "end";
-  window.addEventListener("pointermove", onTrimDrag);
-  window.addEventListener("pointerup", stopTrimDrag, { once: true });
-});
-
-function onTrimDrag(e) {
-  if (!isDraggingTrim) return;
-  const track = trimStart.parentElement;
-  const rect = track.getBoundingClientRect();
-  const percent = clamp(((e.clientX - rect.left) / rect.width) * 100, 0, 100);
-  
-  if (isDraggingTrim === "start") {
-    trimState.start = Math.min(percent, trimState.end - 1);
-  } else {
-    trimState.end = Math.max(percent, trimState.start + 1);
-  }
-  
-  updateTrimHandles();
-}
-
-function stopTrimDrag() {
-  window.removeEventListener("pointermove", onTrimDrag);
-  isDraggingTrim = null;
-}
-
-// Crop overlay interactions
-function startCropDrag(event, mode) {
-  event.preventDefault();
-  const shellRect = videoShell.getBoundingClientRect();
-  pointerState = {
-    mode,
-    startX: event.clientX,
-    startY: event.clientY,
-    rect: { ...cropState },
-    shellW: shellRect.width,
-    shellH: shellRect.height,
-  };
-  window.addEventListener("pointermove", onCropPointerMove);
-  window.addEventListener("pointerup", stopCropDrag, { once: true });
-}
-
-function onCropPointerMove(event) {
-  if (!pointerState) return;
-  const dxPct = ((event.clientX - pointerState.startX) / pointerState.shellW) * 100;
-  const dyPct = ((event.clientY - pointerState.startY) / pointerState.shellH) * 100;
-  const next = { ...pointerState.rect };
-
-  if (pointerState.mode === "move") {
-    next.x = clamp(pointerState.rect.x + dxPct, 0, 100 - pointerState.rect.w);
-    next.y = clamp(pointerState.rect.y + dyPct, 0, 100 - pointerState.rect.h);
-  } else {
-    const { mode } = pointerState;
-    if (mode.includes("l")) {
-      next.x = clamp(pointerState.rect.x + dxPct, 0, pointerState.rect.x + pointerState.rect.w - 5);
-      next.w = clamp(pointerState.rect.w - dxPct, 5, 100 - next.x);
-    }
-    if (mode.includes("r")) {
-      next.w = clamp(pointerState.rect.w + dxPct, 5, 100 - pointerState.rect.x);
-    }
-    if (mode.includes("t")) {
-      next.y = clamp(pointerState.rect.y + dyPct, 0, pointerState.rect.y + pointerState.rect.h - 5);
-      next.h = clamp(pointerState.rect.h - dyPct, 5, 100 - next.y);
-    }
-    if (mode.includes("b")) {
-      next.h = clamp(pointerState.rect.h + dyPct, 5, 100 - pointerState.rect.y);
-    }
-  }
-
-  cropState = next;
-  applyCropOverlay();
-}
-
-function stopCropDrag() {
-  window.removeEventListener("pointermove", onCropPointerMove);
-  pointerState = null;
-}
+trimStartHandle.addEventListener("pointerdown", (event) => startTrimDrag("start", event));
+trimEndHandle.addEventListener("pointerdown", (event) => startTrimDrag("end", event));
 
 cropOverlay.addEventListener("pointerdown", (event) => {
-  const handle = event.target.dataset?.handle;
-  startCropDrag(event, handle ? handle : "move");
+	if (event.target.classList.contains("crop-handle")) return;
+	startCropDrag("move", event);
+});
+cropHandles.forEach((handle) => {
+	handle.addEventListener("pointerdown", (event) => {
+		startCropDrag(handle.dataset.handle || "move", event);
+	});
 });
 
-// Initialize
-renderFileInfo();
-setStatus("");
+startInput.addEventListener("change", handleTrimInputChange);
+endInput.addEventListener("change", handleTrimInputChange);
+
+[cropWidthInput, cropHeightInput, cropXInput, cropYInput].forEach((input) => {
+	input.addEventListener("change", handleCropInputChange);
+});
+
+crfInput.addEventListener("input", () => {
+	crfValue.textContent = crfInput.value;
+});
+
+processBtn.addEventListener("click", processActiveFile);
+processBatchBtn.addEventListener("click", processBatch);
+videoInput.addEventListener("change", handleFileChange);
+
+window.addEventListener("resize", () => {
+	requestAnimationFrame(updateCropOverlay);
+});
+
+const bootstrap = async () => {
+	setStatus("Awaiting videos.");
+	resetProgress();
+	videoShell.style.display = "none";
+	cropOverlay.style.display = "none";
+	try {
+		await ensureWasm();
+	} catch (err) {
+		setStatus(err.message || "Failed to initialize WASM", true);
+	}
+	updateVolumeUI();
+};
+
+bootstrap();

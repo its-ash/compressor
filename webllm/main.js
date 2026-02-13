@@ -1,5 +1,17 @@
 import initWasm, { ConversationManager, init_panic_hook as installPanicHook } from "./pkg/webllm_wasm.js";
 import * as webllm from "https://esm.run/@mlc-ai/web-llm";
+import { EditorState } from "https://esm.sh/@codemirror/state";
+import { EditorView, highlightActiveLineGutter, lineNumbers } from "https://esm.sh/@codemirror/view";
+import { defaultHighlightStyle, indentOnInput, syntaxHighlighting } from "https://esm.sh/@codemirror/language";
+import { history, historyKeymap } from "https://esm.sh/@codemirror/commands";
+import { defaultKeymap, indentWithTab } from "https://esm.sh/@codemirror/commands";
+import { keymap } from "https://esm.sh/@codemirror/view";
+import { oneDark } from "https://esm.sh/@codemirror/theme-one-dark";
+import { javascript } from "https://esm.sh/@codemirror/lang-javascript";
+import { markdown } from "https://esm.sh/@codemirror/lang-markdown";
+import { python } from "https://esm.sh/@codemirror/lang-python";
+import { rust } from "https://esm.sh/@codemirror/lang-rust";
+import { json as jsonLang } from "https://esm.sh/@codemirror/lang-json";
 
 // Some browsers omit the Cache Storage API on non-secure origins. Provide a no-op fallback
 // so WebLLM can still initialize when served via file:// or basic HTTP servers.
@@ -100,6 +112,15 @@ let engine = null;
 let enginePromise = null;
 let isBusy = false;
 let loadedModelId = null;
+let codeMirrorViews = [];
+const baseExtensions = [
+        lineNumbers(),
+        highlightActiveLineGutter(),
+        history(),
+        indentOnInput(),
+        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+        keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+];
 
 async function bootstrap() {
         await initWasm();
@@ -230,8 +251,92 @@ function extractTextFromCompletion(completion) {
         return "(no content)";
 }
 
+function parseContentParts(raw) {
+        const content = raw || "";
+        const parts = [];
+        const regex = /```(\w+)?\n([\s\S]*?)```/g;
+        let lastIndex = 0;
+        let match;
+
+        while ((match = regex.exec(content)) !== null) {
+                if (match.index > lastIndex) {
+                        parts.push({ type: "text", value: content.slice(lastIndex, match.index) });
+                }
+                parts.push({ type: "code", language: match[1] || "", value: match[2] });
+                lastIndex = regex.lastIndex;
+        }
+
+        if (lastIndex < content.length) {
+                parts.push({ type: "text", value: content.slice(lastIndex) });
+        }
+
+        return parts.length ? parts : [{ type: "text", value: content }];
+}
+
+function resolveLanguageExtension(lang) {
+        const key = (lang || "").toLowerCase();
+        if (["js", "javascript", "jsx"].includes(key)) return javascript();
+        if (["ts", "tsx", "typescript"].includes(key)) return javascript({ typescript: true, jsx: key === "tsx" });
+        if (["md", "markdown"].includes(key)) return markdown();
+        if (["py", "python"].includes(key)) return python();
+        if (["rs", "rust"].includes(key)) return rust();
+        if (key === "json") return jsonLang();
+        return null;
+}
+
+function destroyCodeMirrorViews() {
+        codeMirrorViews.forEach(view => view.destroy());
+        codeMirrorViews = [];
+}
+
+function renderMessageContent(container, content) {
+        container.innerHTML = "";
+        const parts = parseContentParts(content);
+
+        parts.forEach(part => {
+                if (part.type === "code") {
+                        const block = document.createElement("div");
+                        block.className = "code-block";
+                        const editorHost = document.createElement("div");
+                        block.appendChild(editorHost);
+                        container.appendChild(block);
+
+                        const extensions = [
+                                ...baseExtensions,
+                                oneDark,
+                                EditorView.editable.of(false),
+                                EditorState.readOnly.of(true),
+                                EditorView.theme({
+                                        "&": { backgroundColor: "transparent" },
+                                        ".cm-scroller": { fontFamily: "JetBrains Mono, monospace" },
+                                }),
+                        ];
+
+                        const langExt = resolveLanguageExtension(part.language);
+                        if (langExt) extensions.push(langExt);
+
+                        const state = EditorState.create({
+                                doc: (part.value || "").trimEnd(),
+                                extensions,
+                        });
+
+                        const view = new EditorView({ state, parent: editorHost });
+                        codeMirrorViews.push(view);
+                } else {
+                        const text = part.value || "";
+                        text.split(/\n{2,}/).forEach(chunk => {
+                                if (!chunk.trim()) return;
+                                const paragraph = document.createElement("p");
+                                paragraph.textContent = chunk.trim();
+                                container.appendChild(paragraph);
+                        });
+                }
+        });
+}
+
 async function renderHistory() {
         if (!manager) {
+                destroyCodeMirrorViews();
                 historyList.hidden = true;
                 historyEmpty.hidden = false;
                 contextPreview.textContent = contextInput.value.trim() || "No context captured yet.";
@@ -239,6 +344,7 @@ async function renderHistory() {
         }
 
         try {
+                destroyCodeMirrorViews();
                 const snapshot = await manager.history();
                 const { context, messages } = snapshot || {};
                 setContextPreview(context || "");
@@ -257,11 +363,19 @@ async function renderHistory() {
 
                         const header = document.createElement("div");
                         header.className = "message-header";
-                        header.innerHTML = `<span>${message.role}</span><span>${formatTimestamp(message.timestamp)}</span>`;
+                        if (message.role !== "user") {
+                                const role = document.createElement("span");
+                                role.textContent = message.role;
+                                header.appendChild(role);
+                        }
+
+                        const time = document.createElement("span");
+                        time.textContent = formatTimestamp(message.timestamp);
+                        header.appendChild(time);
 
                         const body = document.createElement("div");
                         body.className = "message-content";
-                        body.textContent = message.content;
+                        renderMessageContent(body, message.content);
 
                         item.appendChild(header);
                         item.appendChild(body);
