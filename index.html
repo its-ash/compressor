@@ -36,6 +36,8 @@
       --muted: #94a3b8;
       --border: rgba(255, 255, 255, 0.08);
       --shadow: 0 18px 80px rgba(0, 0, 0, 0.4);
+      --accent-sun: #f97316;
+      --accent-sun-2: #fb923c;
     }
 
     @media (prefers-color-scheme: light) {
@@ -52,6 +54,8 @@
         --muted: #475569;
         --border: rgba(15, 23, 42, 0.1);
         --shadow: 0 20px 60px rgba(15, 23, 42, 0.12);
+        --accent-sun: #f97316;
+        --accent-sun-2: #fb923c;
       }
     }
 
@@ -170,6 +174,11 @@
       color: white;
     }
 
+    .llm-icon {
+      background: linear-gradient(135deg, var(--accent-sun), var(--accent-sun-2));
+      color: #0b1220;
+    }
+
     .tool-title {
       font-size: 28px;
       font-weight: 600;
@@ -234,6 +243,15 @@
 
     .zip-button:hover {
       box-shadow: 0 8px 24px rgba(139, 92, 246, 0.4);
+    }
+
+    .llm-button {
+      background: linear-gradient(120deg, var(--accent-sun), var(--accent-sun-2));
+      color: #0f172a;
+    }
+
+    .llm-button:hover {
+      box-shadow: 0 8px 24px rgba(249, 115, 22, 0.35);
     }
 
     .footer {
@@ -321,6 +339,21 @@
         </div>
 
         <button class="tool-button zip-button">Open File Compressor →</button>
+      </a>
+
+      <a href="./webllm/" class="tool-card">
+        <div class="tool-icon llm-icon">🧠</div>
+        <h2 class="tool-title">WebLLM Studio</h2>
+        <p class="tool-description">Pair custom context with prompts and chat with WebLLM fully offline. Rust & WebGPU keep every token on your device.</p>
+
+        <div class="tool-features">
+          <div class="tool-feature">Context + prompt workflow</div>
+          <div class="tool-feature">Local WebGPU inference</div>
+          <div class="tool-feature">Rust-managed history</div>
+          <div class="tool-feature">PWA ready</div>
+        </div>
+
+        <button class="tool-button llm-button">Open WebLLM Studio →</button>
       </a>
     </main>
 

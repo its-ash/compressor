@@ -8,8 +8,65 @@ import init, {
   calculate_crop_with_aspect_ratio
 } from "./pkg/video_wasm.js";
 
-// Access FFmpeg from global scope (loaded via script tag)
-const { createFFmpeg, fetchFile } = FFmpeg;
+// Access FFmpeg constructor from global scope (loaded via script tag)
+const ffmpegNamespace = window.FFmpegWASM ?? window.FFmpeg;
+if (!ffmpegNamespace) {
+  throw new Error("FFmpeg WASM bundle is missing. Ensure ffmpeg.min.js is loaded before main.js.");
+}
+
+const FfmpegClass = ffmpegNamespace.FFmpeg ?? ffmpegNamespace.default;
+if (typeof FfmpegClass !== "function") {
+  throw new Error("FFmpeg constructor not found on the global namespace.");
+}
+
+// Minimal fetchFile replacement for the browser runtime
+const fetchFile = async (source) => {
+  if (source instanceof Uint8Array) return source;
+  if (source instanceof ArrayBuffer) return new Uint8Array(source);
+  if (ArrayBuffer.isView(source)) {
+    const { buffer, byteOffset, byteLength } = source;
+    return new Uint8Array(buffer.slice(byteOffset, byteOffset + byteLength));
+  }
+  if (source instanceof Blob) {
+    return new Uint8Array(await source.arrayBuffer());
+  }
+  if (typeof source === "string") {
+    const response = await fetch(source);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${source}: ${response.status} ${response.statusText}`);
+    }
+    return new Uint8Array(await response.arrayBuffer());
+  }
+  throw new Error("Unsupported data type passed to fetchFile");
+};
+
+const FF_VERSION = "0.12.10";
+const CORE_URL = new URL(`./ffmpeg-core.js?v=${FF_VERSION}`, document.baseURI).href;
+const WASM_URL = new URL(`./ffmpeg-core.wasm?v=${FF_VERSION}`, document.baseURI).href;
+const WORKER_URL = new URL(`./ffmpeg-core.worker.js?v=${FF_VERSION}`, document.baseURI).href;
+
+const ffmpeg = new FfmpegClass();
+
+const handleFfmpegLog = (event) => {
+  const message = typeof event === "string" ? event : event?.message;
+  if (message) {
+    console.log(`[ffmpeg] ${message}`);
+  }
+};
+
+const handleFfmpegProgress = (payload) => {
+  const ratioValue = typeof payload === "number"
+    ? payload
+    : Number(payload?.ratio ?? payload?.progress ?? 0);
+  if (Number.isFinite(ratioValue) && ratioValue > 0 && ratioValue <= 1) {
+    setProgress(ratioValue * 100, `${Math.round(ratioValue * 100)}%`);
+  }
+};
+
+if (typeof ffmpeg.on === "function") {
+  ffmpeg.on("log", handleFfmpegLog);
+  ffmpeg.on("progress", handleFfmpegProgress);
+}
 
 // Initialize WASM module
 let wasmReady = false;
@@ -64,22 +121,17 @@ let isPlaying = false;
 let currentFiles = [];
 let currentFileIndex = 0;
 
-// FFmpeg instance
-const ffmpeg = createFFmpeg({
-  log: true,
-  corePath: new URL('./ffmpeg-core.js?v=' + Date.now(), document.baseURI).href,
-  progress: ({ ratio }) => {
-    if (ratio > 0 && ratio <= 1) {
-      setProgress(ratio * 100, `${Math.round(ratio * 100)}%`);
-    }
-  }
-});
+// FFmpeg instance is created above so we can keep a single worker alive
 
 // Initialize FFmpeg
 async function ensureFfmpeg() {
   if (ffmpegReady) return;
   setStatus("Loading FFmpeg (~25 MB)...");
-  await ffmpeg.load();
+  await ffmpeg.load({
+    coreURL: CORE_URL,
+    wasmURL: WASM_URL,
+    workerURL: WORKER_URL,
+  });
   ffmpegReady = true;
   setStatus("FFmpeg loaded.");
 }
@@ -186,9 +238,10 @@ const applyCropOverlay = () => {
   }
 };
 
-const safeUnlink = (path) => {
+const safeUnlink = async (path) => {
+  if (!ffmpegReady) return;
   try {
-    ffmpeg.FS("unlink", path);
+    await ffmpeg.deleteFile(path);
   } catch (err) {
     // File might not exist; ignore.
   }
@@ -353,11 +406,11 @@ const processVideo = async (file, index) => {
 
     const inputName = `input_${index}.mp4`;
     const outputName = `output_${index}.mp4`;
-    safeUnlink(inputName);
-    safeUnlink(outputName);
+    await safeUnlink(inputName);
+    await safeUnlink(outputName);
 
     setStatus("Loading file into memory...");
-    ffmpeg.FS("writeFile", inputName, await fetchFile(file));
+    await ffmpeg.writeFile(inputName, await fetchFile(file));
 
     // Determine scale dimensions
     const scaleMap = {
@@ -420,10 +473,11 @@ const processVideo = async (file, index) => {
 
     setStatus("Encoding with FFmpeg...");
     setProgress(10, "Encoding...");
-    await ffmpeg.run(...args);
+    await ffmpeg.exec(args);
 
-    const data = ffmpeg.FS("readFile", outputName);
-    const url = URL.createObjectURL(new Blob([data.buffer], { type: "video/mp4" }));
+    const data = await ffmpeg.readFile(outputName);
+    const outputBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+    const url = URL.createObjectURL(new Blob([outputBuffer], { type: "video/mp4" }));
     
     const baseName = file.name.replace(/\.[^/.]+$/, "");
     const filename = `${baseName}-compressed-${Date.now()}.mp4`;
@@ -448,8 +502,8 @@ const processVideo = async (file, index) => {
     setProgress(100, "Done");
     
     // Cleanup
-    safeUnlink(inputName);
-    safeUnlink(outputName);
+    await safeUnlink(inputName);
+    await safeUnlink(outputName);
   } catch (err) {
     console.error(err);
     setStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);

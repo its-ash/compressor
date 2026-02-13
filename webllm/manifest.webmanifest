@@ -1,0 +1,16 @@
+{
+  "name": "WebLLM Studio",
+  "short_name": "WebLLM",
+  "description": "Chat with WebLLM locally: provide context, send prompts, and keep everything offline.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#040311",
+  "theme_color": "#0ea5e9",
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

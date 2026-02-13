@@ -805,15 +805,48 @@
   </script>
 
   <!-- Load FFmpeg library locally -->
-  <script src="./ffmpeg.min.js"></script>
+  <script src="./ffmpeg.min.js?v=0.12.10"></script>
+  <script>
+    if (!window.FFmpeg && window.FFmpegWASM) {
+      window.FFmpeg = window.FFmpegWASM;
+    }
+  </script>
   
   <script type="module" src="./main.js"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./sw.js")
-          .then(reg => console.log("Service worker registered", reg.scope))
-          .catch(err => console.log("Service worker registration failed:", err));
+        const swUrl = "./sw.js";
+        const requestSkipWaiting = (worker) => {
+          if (worker) worker.postMessage({ type: "SKIP_WAITING" });
+        };
+
+        navigator.serviceWorker.register(swUrl)
+          .then((reg) => {
+            console.log("Service worker registered", reg.scope);
+
+            if (reg.waiting) {
+              requestSkipWaiting(reg.waiting);
+            }
+
+            reg.addEventListener("updatefound", () => {
+              const newWorker = reg.installing;
+              if (!newWorker) return;
+              newWorker.addEventListener("statechange", () => {
+                if (newWorker.state === "installed") {
+                  requestSkipWaiting(newWorker);
+                }
+              });
+            });
+          })
+          .catch((err) => console.log("Service worker registration failed:", err));
+
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (refreshing) return;
+          refreshing = true;
+          window.location.reload();
+        });
       });
     }
 

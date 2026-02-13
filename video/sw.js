@@ -1,4 +1,5 @@
-const CACHE_NAME = "video-studio-v4";
+const CACHE_NAME = "video-studio-v6";
+const FF_VERSION = "0.12.10";
 const OFFLINE_ASSETS = [
   "./",
   "./index.html",
@@ -6,10 +7,11 @@ const OFFLINE_ASSETS = [
   "./manifest.webmanifest",
   "./icons/icon-192.svg",
   "./icons/icon-512.svg",
-  "./ffmpeg-core.js",
-  "./ffmpeg-core.wasm",
-  "./ffmpeg-core.worker.js",
-  "./ffmpeg.min.js",
+  `./ffmpeg-core.js?v=${FF_VERSION}`,
+  `./ffmpeg-core.wasm?v=${FF_VERSION}`,
+  `./ffmpeg-core.worker.js?v=${FF_VERSION}`,
+  `./ffmpeg.min.js?v=${FF_VERSION}`,
+  "./814.ffmpeg.js",
   "./pkg/video_wasm.js",
   "./pkg/video_wasm_bg.wasm"
 ];
