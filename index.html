@@ -175,6 +175,11 @@
       color: #0b1220;
     }
 
+    .image-icon {
+      background: linear-gradient(135deg, var(--accent-2), var(--accent-purple));
+      color: #0b1220;
+    }
+
     .zip-icon {
       background: linear-gradient(135deg, var(--accent-purple), var(--accent-purple-2));
       color: white;
@@ -330,6 +335,21 @@
         </div>
 
         <button class="tool-button">Open Video Studio →</button>
+      </a>
+
+      <a href="./image/" class="tool-card">
+        <div class="tool-icon image-icon">🖼️</div>
+        <h2 class="tool-title">Image Editor</h2>
+        <p class="tool-description">Crop, warp, compress, and optimise images with Rust + WebAssembly. Everything stays on your device, including HEIC imports.</p>
+
+        <div class="tool-features">
+          <div class="tool-feature">Interactive crop & perspective</div>
+          <div class="tool-feature">PNG, JPEG, WebP, HEIC</div>
+          <div class="tool-feature">Local compression previews</div>
+          <div class="tool-feature">Offline-first workflow</div>
+        </div>
+
+        <button class="tool-button">Open Image Editor →</button>
       </a>
 
       <a href="./zip/" class="tool-card">
