@@ -1,0 +1,17 @@
+{
+  "name": "image_tools",
+  "type": "module",
+  "description": "In-browser image tools (crop, perspective crop, resize, compress) powered by Rust and WebAssembly",
+  "version": "0.1.0",
+  "license": "MIT OR Apache-2.0",
+  "files": [
+    "image_tools_bg.wasm",
+    "image_tools.js",
+    "image_tools.d.ts"
+  ],
+  "main": "image_tools.js",
+  "types": "image_tools.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
