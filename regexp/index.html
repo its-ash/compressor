@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Free online Regex Generator tool. Create optimized Regular Expressions from examples instantly. Powered by Rust and WebAssembly, runs fully offline in your browser.">
+  <meta name="keywords" content="regex generator, regular expression tool, rust regex, webassembly regex, offline regex tool, pattern matching, data extraction, grex online">
+  <meta name="author" content="Ashvini Jangid">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://ash-tools.store/regexp/">
+  
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://ash-tools.store/regexp/">
+  <meta property="og:title" content="Regex Generator | Ash Tools">
+  <meta property="og:description" content="Generate optimized Regular Expressions from examples. Process text offline with Rust + WASM.">
+  <meta property="og:image" content="https://ash-tools.store/icons/icon-512.png">
+  
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Regex Generator | Ash Tools">
+  <meta name="twitter:description" content="Generate optimized Regular Expressions from examples. Process text offline with Rust + WASM.">
+  <meta name="twitter:image" content="https://ash-tools.store/icons/icon-512.png">
+
+  <title>Regex Generator | Ash Tools</title>
+  <link rel="favicon" href="../icon.gif">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Regex Generator",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Any",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "description": "Free online tool to generate optimized Regular Expressions from examples using Rust and WebAssembly.",
+      "author": {
+        "@type": "Person",
+        "name": "Ashvini Jangid",
+        "url": "https://its-ash.github.io/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Local only</p>
+        <h1>Regex Generator</h1>
+        <p class="lede">Generate optimized Regular Expressions from examples. Enter text and the parts you want to match.</p>
+      </div>
+    </header>
+
+    <section class="panel">
+      <div class="inputs-grid">
+        <label class="field">
+          <span class="label">Input Text (Source)</span>
+          <textarea id="inputText" placeholder="Paste your source text here..."></textarea>
+        </label>
+        
+        <label class="field">
+          <span class="label">Desired Matches (Output)</span>
+          <textarea id="targetText" placeholder="Paste the exact strings you want to match from the input (one per line)..."></textarea>
+        </label>
+      </div>
+
+      <div class="actions">
+        <button id="generateBtn">
+          <span>Generate Regex</span>
+        </button>
+      </div>
+
+      <div class="output-box" id="resultBox" hidden>
+        <h3>Generated Regex</h3>
+        <div class="code-editor" style="min-height: auto; padding: 20px; color: var(--accent); font-size: 16px; margin-bottom: 20px;" id="regexOutput"></div>
+        
+        <p class="label">Preview matches in Input Text:</p>
+        <div id="preview" class="preview-box"></div>
+      </div>
+    </section>
+  </main>
+
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

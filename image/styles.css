@@ -376,6 +376,22 @@ button:disabled {
   z-index: 2;
 }
 
+.crop-box .crop-size {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  display: none;
+}
+
 .crop-box .handle {
   position: absolute;
   width: 14px;

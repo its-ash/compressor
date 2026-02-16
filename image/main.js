@@ -15,6 +15,7 @@ const resetBtn = document.getElementById("resetBtn");
 const modeCropBtn = document.getElementById("modeCrop");
 const modePerspectiveBtn = document.getElementById("modePerspective");
 const cropBox = document.getElementById("cropBox");
+const cropSizeEl = document.getElementById("cropSize");
 const perspOverlay = document.getElementById("perspOverlay");
 const perspSvg = document.getElementById("perspSvg");
 const perspPolygon = document.getElementById("perspPolygon");
@@ -26,8 +27,46 @@ const perspectiveHandles = perspectiveHandleElements.reduce((acc, el) => {
 }, {});
 
 const formatSelect = document.getElementById("formatSelect");
+const qualityRow = document.getElementById("qualityRow");
 const qualityInput = document.getElementById("qualityInput");
 const qualityValue = document.getElementById("qualityValue");
+
+const placeholderSvgMarkup = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" role="img" aria-label="Placeholder preview">
+  <defs>
+    <linearGradient id="placeholderGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+    <pattern id="placeholderPattern" x="0" y="0" width="48" height="48" patternUnits="userSpaceOnUse">
+      <rect x="0" y="0" width="48" height="48" fill="none" stroke="#334155" stroke-width="1" />
+      <rect x="0" y="0" width="16" height="16" fill="#0f172a" opacity="0.35" />
+      <rect x="32" y="32" width="16" height="16" fill="#0f172a" opacity="0.35" />
+    </pattern>
+  </defs>
+  <rect width="1280" height="720" fill="url(#placeholderGradient)" />
+  <rect x="40" y="40" width="1200" height="640" fill="url(#placeholderPattern)" opacity="0.5" />
+  <g fill="none" stroke="#38bdf8" stroke-width="6" opacity="0.35">
+    <path d="M120 520 L320 320 L520 520" />
+    <path d="M760 520 L960 320 L1160 520" />
+    <circle cx="640" cy="300" r="90" />
+  </g>
+  <g fill="#38bdf8" opacity="0.85">
+    <text x="640" y="370" text-anchor="middle" font-size="48" font-family="'Space Grotesk', 'IBM Plex Mono', monospace">Drop or browse an image</text>
+    <text x="640" y="430" text-anchor="middle" font-size="24" font-family="'IBM Plex Mono', monospace" opacity="0.7">Preview updates after processing</text>
+  </g>
+</svg>
+`.trim();
+
+const defaultPreviewSrc = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(placeholderSvgMarkup)}`;
+
+if (previewImg && !previewImg.getAttribute("src")) {
+  previewImg.src = defaultPreviewSrc;
+}
+
+if (metaEl) {
+  metaEl.textContent = "Load an image to begin cropping.";
+}
 
 let wasmReadyPromise = null;
 let currentBytes = null;
@@ -296,6 +335,19 @@ const getOutputSettings = () => {
   return { format, quality };
 };
 
+const updateQualityVisibility = () => {
+  const isJpeg = (formatSelect?.value ?? "") === "jpeg";
+  if (qualityRow) {
+    qualityRow.style.display = isJpeg ? "grid" : "none";
+  }
+  if (qualityInput) {
+    qualityInput.disabled = !isJpeg;
+  }
+  if (qualityValue) {
+    qualityValue.style.display = isJpeg ? "inline" : "none";
+  }
+};
+
 let projectedSizeTimer = null;
 let projectedSizeToken = 0;
 
@@ -447,22 +499,42 @@ const attachPerspectiveInteractions = () => {
   });
 };
 
+const updateCropSizeLabel = () => {
+  if (!cropSizeEl) return;
+  if (!currentDims || activeMode !== "crop") {
+    cropSizeEl.style.display = "none";
+    cropSizeEl.textContent = "";
+    return;
+  }
+
+  const width = Math.max(1, Math.round(cropRect.w * currentDims.width));
+  const height = Math.max(1, Math.round(cropRect.h * currentDims.height));
+  cropSizeEl.textContent = `${width}×${height}px`;
+  cropSizeEl.style.display = "block";
+};
+
 const updateCropOverlay = () => {
   if (!previewImg || !cropBox) return;
   if (!currentDims || activeMode !== "crop") {
     cropBox.style.display = "none";
+    updateCropSizeLabel();
     return;
   }
 
   const displayW = previewImg.clientWidth;
   const displayH = previewImg.clientHeight;
-  if (!displayW || !displayH) return;
+  if (!displayW || !displayH) {
+    cropBox.style.display = "none";
+    updateCropSizeLabel();
+    return;
+  }
 
   cropBox.style.display = "block";
   cropBox.style.left = `${cropRect.x * displayW}px`;
   cropBox.style.top = `${cropRect.y * displayH}px`;
   cropBox.style.width = `${cropRect.w * displayW}px`;
   cropBox.style.height = `${cropRect.h * displayH}px`;
+  updateCropSizeLabel();
 };
 
 const attachCropInteractions = () => {
@@ -722,7 +794,10 @@ if (qualityInput) {
 }
 
 if (formatSelect) {
-  formatSelect.addEventListener("change", requestProjectedDownloadSize);
+  formatSelect.addEventListener("change", () => {
+    updateQualityVisibility();
+    requestProjectedDownloadSize();
+  });
 }
 
 bindDropzone();
@@ -733,6 +808,7 @@ resetBtn.disabled = true;
 setDownloadLabel(null);
 updateModeButtons();
 updateQualityLabel();
+updateQualityVisibility();
 updateCropOverlay();
 updatePerspectiveOverlay();
 attachCropInteractions();

@@ -1,0 +1,15 @@
+[package]
+name = "webscan-wasm"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde-wasm-bindgen = "0.6"
+web-sys = { version = "0.3", features = ["AbortController", "AbortSignal", "Navigator", "Window", "WorkerGlobalScope", "console", "Request", "RequestInit", "RequestMode", "Response"] }
+wasm-bindgen-futures = "0.4"

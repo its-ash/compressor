@@ -189,6 +189,16 @@
       background: linear-gradient(135deg, var(--accent-sun), var(--accent-sun-2));
       color: #0b1220;
     }
+    
+    .speed-icon {
+      background: linear-gradient(135deg, #10b981, #34d399); 
+      color: #0b1220;
+    }
+
+    .regex-icon {
+      background: linear-gradient(135deg, #ec4899, #f472b6);
+      color: white;
+    }
 
     .tool-title {
       font-size: 24px;
@@ -263,6 +273,24 @@
 
     .llm-button:hover {
       box-shadow: 0 8px 24px rgba(249, 115, 22, 0.35);
+    }
+
+    .speed-button {
+      background: linear-gradient(120deg, #10b981, #34d399);
+      color: #0f172a;
+    }
+
+    .speed-button:hover {
+      box-shadow: 0 8px 24px rgba(52, 211, 153, 0.4);
+    }
+
+    .regex-button {
+      background: linear-gradient(120deg, #ec4899, #f472b6);
+      color: white;
+    }
+
+    .regex-button:hover {
+      box-shadow: 0 8px 24px rgba(236, 72, 153, 0.4);
     }
 
     .footer {
@@ -380,6 +408,36 @@
         </div>
 
         <button class="tool-button llm-button">Open WebLLM Studio →</button>
+      </a>
+
+      <a href="./speed/" class="tool-card">
+        <div class="tool-icon speed-icon">⚡</div>
+        <h2 class="tool-title">Speed Runner</h2>
+        <p class="tool-description">Benchmark JavaScript code execution and memory usage. Run snippets in an isolated worker with visual performance graphs.</p>
+
+        <div class="tool-features">
+          <div class="tool-feature">Execution time analysis</div>
+          <div class="tool-feature">Heap memory tracking (Chrome)</div>
+          <div class="tool-feature">Visual performance charts</div>
+          <div class="tool-feature">Worker-based isolation</div>
+        </div>
+
+        <button class="tool-button speed-button">Open Speed Runner →</button>
+      </a>
+
+      <a href="./regexp/" class="tool-card">
+        <div class="tool-icon regex-icon">.*</div>
+        <h2 class="tool-title">Regex Generator</h2>
+        <p class="tool-description">Generate optimized Regular Expressions from examples. Match patterns instantly with WASM-powered engine.</p>
+
+        <div class="tool-features">
+          <div class="tool-feature">Example-based generation</div>
+          <div class="tool-feature">Rust/Grex powered</div>
+          <div class="tool-feature">Instant preview</div>
+          <div class="tool-feature">Offline processing</div>
+        </div>
+
+        <button class="tool-button regex-button">Open Regex Tool →</button>
       </a>
     </main>
 

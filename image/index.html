@@ -32,6 +32,7 @@
         <div class="preview-stage" id="previewStage">
           <img id="preview" alt="Preview" />
           <div id="cropBox" class="crop-box">
+            <div id="cropSize" class="crop-size" aria-live="polite"></div>
             <span class="handle nw" data-handle="nw"></span>
             <span class="handle ne" data-handle="ne"></span>
             <span class="handle sw" data-handle="sw"></span>
@@ -74,7 +75,7 @@
           </div>
 
           <div class="compress-panel">
-            <div class="compress-row">
+            <div class="compress-row" id="qualityRow">
               <label for="qualityInput">Compression</label>
               <input id="qualityInput" type="range" min="10" max="100" value="80">
               <span id="qualityValue" class="value">80%</span>

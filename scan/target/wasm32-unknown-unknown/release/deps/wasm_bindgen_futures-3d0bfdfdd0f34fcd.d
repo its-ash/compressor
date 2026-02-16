@@ -1,0 +1,9 @@
+/Users/ashvinijangid/Desktop/compressor/scan/target/wasm32-unknown-unknown/release/deps/wasm_bindgen_futures-3d0bfdfdd0f34fcd.d: /Users/ashvinijangid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.58/src/lib.rs /Users/ashvinijangid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.58/src/queue.rs /Users/ashvinijangid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.58/src/task/singlethread.rs
+
+/Users/ashvinijangid/Desktop/compressor/scan/target/wasm32-unknown-unknown/release/deps/libwasm_bindgen_futures-3d0bfdfdd0f34fcd.rlib: /Users/ashvinijangid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.58/src/lib.rs /Users/ashvinijangid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.58/src/queue.rs /Users/ashvinijangid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.58/src/task/singlethread.rs
+
+/Users/ashvinijangid/Desktop/compressor/scan/target/wasm32-unknown-unknown/release/deps/libwasm_bindgen_futures-3d0bfdfdd0f34fcd.rmeta: /Users/ashvinijangid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.58/src/lib.rs /Users/ashvinijangid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.58/src/queue.rs /Users/ashvinijangid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.58/src/task/singlethread.rs
+
+/Users/ashvinijangid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.58/src/lib.rs:
+/Users/ashvinijangid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.58/src/queue.rs:
+/Users/ashvinijangid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.58/src/task/singlethread.rs:

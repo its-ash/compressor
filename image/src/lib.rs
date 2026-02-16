@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use image::codecs::jpeg::JpegEncoder;
 use image::codecs::png::PngEncoder;
 use image::codecs::webp::WebPEncoder;
@@ -40,25 +42,84 @@ fn clamp_quality(q: u8) -> u8 {
     q.clamp(1, 100)
 }
 
+fn is_opaque(img: &RgbaImage) -> bool {
+    img.pixels().all(|p| p.0[3] == 255)
+}
+
+fn webp_bit_depth(quality: u8) -> u8 {
+    match quality {
+        96..=u8::MAX => 8,
+        80..=95 => 7,
+        60..=79 => 6,
+        40..=59 => 5,
+        20..=39 => 4,
+        _ => 3,
+    }
+}
+
+fn quantize_channel(value: u8, levels: u16) -> u8 {
+    if levels >= 255 {
+        return value;
+    }
+    let bucket = (value as u16 * levels + 127) / 255;
+    let quantized = (bucket * 255 + levels / 2) / levels;
+    quantized.min(255) as u8
+}
+
+fn prepare_webp_source(img: &RgbaImage, quality: u8) -> Cow<'_, RgbaImage> {
+    let bits = webp_bit_depth(quality);
+    if bits >= 8 {
+        return Cow::Borrowed(img);
+    }
+
+    let levels = (1u16 << bits) - 1;
+    let mut reduced = img.clone();
+    for pixel in reduced.pixels_mut() {
+        for channel in &mut pixel.0[0..3] {
+            *channel = quantize_channel(*channel, levels);
+        }
+    }
+    Cow::Owned(reduced)
+}
+
+fn png_preset(quality: u8) -> (image::codecs::png::CompressionType, image::codecs::png::FilterType) {
+    use image::codecs::png::{CompressionType, FilterType};
+    match quality {
+        90..=u8::MAX => (CompressionType::Best, FilterType::Adaptive),
+        70..=89 => (CompressionType::Best, FilterType::Paeth),
+        50..=69 => (CompressionType::Default, FilterType::Paeth),
+        30..=49 => (CompressionType::Fast, FilterType::Sub),
+        _ => (CompressionType::Fast, FilterType::NoFilter),
+    }
+}
+
 fn encode_rgba(img: &RgbaImage, format: EncodeFormat, quality: u8) -> Result<Vec<u8>, JsValue> {
     let mut cursor = std::io::Cursor::new(Vec::new());
     let dyn_img = DynamicImage::ImageRgba8(img.clone());
+    let effective_quality = clamp_quality(quality);
+    let opaque = is_opaque(img);
 
     match format {
         EncodeFormat::Png => {
-            let mut encoder = PngEncoder::new(&mut cursor);
+            let (compression, filter) = png_preset(effective_quality);
+            let encoder = PngEncoder::new_with_quality(&mut cursor, compression, filter);
+            let color = if opaque {
+                ExtendedColorType::Rgb8
+            } else {
+                ExtendedColorType::Rgba8
+            };
+            let bytes: Cow<'_, [u8]> = if opaque {
+                Cow::Owned(dyn_img.to_rgb8().into_raw())
+            } else {
+                Cow::Borrowed(img.as_raw())
+            };
             encoder
-                .write_image(
-                    img.as_raw(),
-                    img.width(),
-                    img.height(),
-                    ExtendedColorType::Rgba8,
-                )
+                .write_image(bytes.as_ref(), img.width(), img.height(), color)
                 .map_err(to_js_error)?;
         }
         EncodeFormat::Jpeg => {
             let rgb = dyn_img.to_rgb8();
-            let mut encoder = JpegEncoder::new_with_quality(&mut cursor, clamp_quality(quality));
+            let mut encoder = JpegEncoder::new_with_quality(&mut cursor, effective_quality);
             encoder
                 .encode(
                     rgb.as_raw(),
@@ -69,12 +130,23 @@ fn encode_rgba(img: &RgbaImage, format: EncodeFormat, quality: u8) -> Result<Vec
                 .map_err(to_js_error)?;
         }
         EncodeFormat::Webp => {
+            let source = prepare_webp_source(img, effective_quality);
+            let source_img = source.as_ref();
+            let color = if is_opaque(source_img) {
+                ExtendedColorType::Rgb8
+            } else {
+                ExtendedColorType::Rgba8
+            };
+            let data: Cow<'_, [u8]> = match color {
+                ExtendedColorType::Rgb8 => Cow::Owned(DynamicImage::ImageRgba8(source_img.clone()).to_rgb8().into_raw()),
+                _ => Cow::Borrowed(source_img.as_raw()),
+            };
             WebPEncoder::new_lossless(&mut cursor)
                 .encode(
-                    img.as_raw(),
-                    img.width(),
-                    img.height(),
-                    ExtendedColorType::Rgba8,
+                    data.as_ref(),
+                    source_img.width(),
+                    source_img.height(),
+                    color,
                 )
                 .map_err(to_js_error)?;
         }

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Free online JavaScript benchmark runner. Test execution speed and memory allocation (heap size) locally in your browser. Visualize performance with charts.">
+  <meta name="keywords" content="javascript benchmark, js speed test, js performance tool, memory profiler, heap size checker, online js runner, offline tool, web worker execution">
+  <meta name="author" content="Ash Tools">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://ash-tools.store/speed/">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://ash-tools.store/speed/">
+  <meta property="og:title" content="JS Speed Runner | Ash Tools">
+  <meta property="og:description" content="Benchmark JavaScript execution speed and memory allocation locally. Visualize results instantly.">
+  <meta property="og:image" content="https://ash-tools.store/icons/icon-512.png">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="JS Speed Runner | Ash Tools">
+  <meta name="twitter:description" content="Benchmark JavaScript execution speed and memory allocation locally. Visualize results instantly.">
+  <meta name="twitter:image" content="https://ash-tools.store/icons/icon-512.png">
+
+  <title>JS Speed Runner | Ash Tools</title>
+  <link rel="favicon" href="../icon.gif">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Local only</p>
+        <h1>Test case runner.</h1>
+        <p class="lede">Paste code, run it, and see elapsed time plus heap usage (when supported by the browser).</p>
+      </div>
+      <div class="stats" id="stats">—</div>
+    </header>
+
+    <section class="panel">
+      <label class="field" for="codeEditor">
+        <span class="label">Code (Ctrl/Cmd + Enter to run)</span>
+        <div id="codeEditor" class="code-editor" aria-label="JavaScript code editor"></div>
+      </label>
+
+      <div class="actions">
+        <button id="runBtn" class="action-btn">
+          <span id="runLabel">Run 500x</span>
+          <span id="runSpinner" class="spinner" aria-hidden="true"></span>
+        </button>
+        <div id="result" class="result" aria-live="polite">Result: —</div>
+      </div>
+
+      <div class="chart-wrap">
+        <div class="chart-header">
+          <span class="label">Summary (ms)</span>
+          <div class="chart-meta">
+            <span id="chartCaption" class="caption">—</span>
+            <span id="chartTime" class="caption">avg —</span>
+            <span id="chartHeap" class="caption">heap Δ —</span>
+          </div>
+        </div>
+        <canvas id="chart" width="640" height="180" aria-label="Timing summary"></canvas>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+  <script src="./main.js" type="module"></script>
+</body>
+</html>
