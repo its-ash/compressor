@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Secure WASM sandboxed code runner. Compile and execute code locally in your browser.">
+  <meta name="keywords" content="wasm runner, sandbox, compiler, wasm, rust, c, c++, python, javascript, browser runtime">
+  <meta name="author" content="Ash Tools">
+  <meta name="robots" content="index,follow">
+
+  <title>Sandboxed Code Runner | Ash Tools</title>
+  <link rel="icon" href="../icon.gif">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="panel">
+      <div class="toolbar">
+        <div class="toolbar-group">
+          <label class="field-inline">
+            <span class="label">Language</span>
+            <select id="languageSelect" aria-label="Language">
+              <option value="javascript">JavaScript</option>
+              <option value="python">Python (Pyodide)</option>
+              <option value="rust">Rust (WASI)</option>
+              <option value="cpp">C/C++ (clang)</option>
+            </select>
+          </label>
+          <label class="field-inline">
+            <span class="label">Timeout</span>
+            <select id="timeoutSelect" aria-label="Timeout">
+              <option value="3000">3s</option>
+              <option value="5000" selected>5s</option>
+              <option value="10000">10s</option>
+            </select>
+          </label>
+        </div>
+        <div class="toolbar-group">
+          <button id="runBtn" class="primary-btn">Run</button>
+          <button id="stopBtn" class="ghost-btn" disabled>Stop</button>
+          <div class="runtime-pill" aria-live="polite">
+            <span class="label">Runtime</span>
+            <span id="runtimeStatus">Idle</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="workspace">
+        <div class="editor-card">
+          <div class="card-header">
+            <span class="label">Code Editor</span>
+            <span class="caption" id="editorHint">CodeMirror</span>
+          </div>
+          <div id="codeEditor" class="code-editor" aria-label="Code editor"></div>
+        </div>
+
+        <div class="side-panel">
+          <div class="card">
+            <div class="card-header">
+              <span class="label">Execution</span>
+              <span class="caption" id="timing">time: --</span>
+            </div>
+            <div class="metrics">
+              <div>
+                <span class="kv-label">Memory</span>
+                <span class="kv-value" id="memory">--</span>
+              </div>
+              <div>
+                <span class="kv-label">Exit</span>
+                <span class="kv-value" id="exitCode">--</span>
+              </div>
+            </div>
+            <div class="status" id="status">Idle</div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <span class="label">Input (stdin)</span>
+            </div>
+            <textarea id="stdinInput" class="log" placeholder="Enter input here..."></textarea>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <span class="label">Console Output</span>
+              <span class="caption">stdout / stderr</span>
+              <button id="copyConsoleBtn" class="copy-btn">Copy</button>
+            </div>
+            <pre id="consoleOutput" class="log"></pre>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <span class="label">Errors</span>
+              <span class="caption">runtime</span>
+              <button id="copyErrorBtn" class="copy-btn">Copy</button>
+            </div>
+            <pre id="errorOutput" class="log error"></pre>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <span class="label">Compile Logs</span>
+              <span class="caption">wasm toolchain</span>
+            </div>
+            <pre id="compileOutput" class="log"></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="./main.js" type="module"></script>
+</body>
+</html>

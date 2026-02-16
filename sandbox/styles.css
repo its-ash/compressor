@@ -1,0 +1,327 @@
+:root {
+  color-scheme: dark light;
+  --bg: #0b1115;
+  --panel: rgba(16, 24, 32, 0.88);
+  --panel-strong: rgba(16, 24, 32, 0.98);
+  --accent: #2dd4bf;
+  --accent-2: #f97316;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --border: rgba(255, 255, 255, 0.12);
+  --shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f5f7fb;
+    --panel: rgba(255, 255, 255, 0.94);
+    --panel-strong: rgba(255, 255, 255, 0.98);
+    --accent: #0f766e;
+    --accent-2: #ea580c;
+    --text: #0f172a;
+    --muted: #475569;
+    --border: rgba(15, 23, 42, 0.12);
+    --shadow: 0 16px 50px rgba(15, 23, 42, 0.14);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at 12% 12%, rgba(45, 212, 191, 0.15), transparent 40%),
+    radial-gradient(circle at 88% 18%, rgba(249, 115, 22, 0.15), transparent 44%),
+    linear-gradient(160deg, rgba(15, 23, 42, 0.55), rgba(8, 47, 73, 0.3)),
+    var(--bg);
+  color: var(--text);
+  font-family: "Space Grotesk", system-ui, -apple-system, sans-serif;
+  display: block;
+  padding: 0;
+}
+
+.shell {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: none;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 100vh;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.runtime-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 12px;
+}
+
+.field-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.label {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.caption {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+select {
+  background: transparent;
+  color: var(--text);
+  border: none;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+}
+
+select:focus {
+  outline: none;
+}
+
+button {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.primary-btn {
+  background: linear-gradient(120deg, var(--accent), var(--accent-2));
+  color: #0b1115;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.22);
+}
+
+.primary-btn:hover {
+  transform: translateY(-1px);
+}
+
+.ghost-btn {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 18px;
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.editor-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel-strong);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 520px;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(8, 15, 22, 0.7);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.copy-btn {
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.copy-btn:hover {
+  background: var(--accent-2);
+}
+
+textarea.log {
+  width: 100%;
+  height: 100px;
+  background: var(--panel-strong);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  resize: vertical;
+}
+
+textarea.log::placeholder {
+  color: var(--muted);
+}
+
+.code-editor {
+  flex: 1;
+  min-height: 480px;
+  height: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--panel-strong);
+}
+
+.code-editor .cm-editor {
+  height: 100%;
+  border-radius: 12px;
+  background: var(--panel-strong);
+  color: var(--text);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+}
+
+.code-editor .cm-scroller {
+  font-family: "IBM Plex Mono", monospace;
+  overscroll-behavior: auto;
+}
+
+.code-editor .cm-gutters {
+  background: var(--panel-strong);
+  color: var(--muted);
+  border-right: 1px solid var(--border);
+}
+
+.code-editor .cm-activeLineGutter {
+  color: var(--accent);
+}
+
+.code-editor .cm-content {
+  caret-color: var(--accent);
+}
+
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.status {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(45, 212, 191, 0.08);
+  border: 1px solid rgba(45, 212, 191, 0.25);
+  color: var(--accent);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.log {
+  min-height: 120px;
+  max-height: 200px;
+  overflow: auto;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.log.error {
+  color: #f87171;
+}
+
+@media (max-width: 720px) {
+  .toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-card {
+    min-height: 420px;
+  }
+
+  .code-editor {
+    min-height: 360px;
+  }
+}

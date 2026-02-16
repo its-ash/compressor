@@ -1,3 +1,12 @@
+import { EditorState } from "https://esm.sh/@codemirror/state";
+import { EditorView, highlightActiveLineGutter, lineNumbers } from "https://esm.sh/@codemirror/view";
+import { defaultHighlightStyle, indentOnInput, syntaxHighlighting } from "https://esm.sh/@codemirror/language";
+import { history, historyKeymap } from "https://esm.sh/@codemirror/commands";
+import { defaultKeymap, indentWithTab } from "https://esm.sh/@codemirror/commands";
+import { keymap } from "https://esm.sh/@codemirror/view";
+import { javascript } from "https://esm.sh/@codemirror/lang-javascript";
+import { oneDark } from "https://esm.sh/@codemirror/theme-one-dark";
+
 const editorHost = document.getElementById("codeEditor");
 const runBtn = document.getElementById("runBtn");
 const resultEl = document.getElementById("result");
@@ -8,7 +17,7 @@ const chartTime = document.getElementById("chartTime");
 const chartHeap = document.getElementById("chartHeap");
 const runSpinner = document.getElementById("runSpinner");
 const runLabel = document.getElementById("runLabel");
-let editorInstance = null;
+let editorView = null;
 
 const formatValue = (value) => {
   if (value === undefined) return "undefined";
@@ -99,8 +108,8 @@ const drawChart = (samples) => {
 };
 
 const runCode = () => {
-  if (!editorInstance || !runBtn || !resultEl) return;
-  const code = editorInstance.getValue() || "";
+  if (!editorView || !runBtn || !resultEl) return;
+  const code = editorView.state.doc.toString() || "";
   const runs = 500; // Fixed 500 iterations
 
   // UI Loading State
@@ -166,16 +175,13 @@ const runCode = () => {
   }
 };
 
-const initMonaco = () =>
-  new Promise((resolve, reject) => {
-    if (!window.require || !editorHost) {
-      reject(new Error("Monaco loader not available"));
-      return;
-    }
-    window.require.config({ paths: { vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs" } });
-    window.require(["vs/editor/editor.main"], () => {
-      const instance = monaco.editor.create(editorHost, {
-        value: `// Example: Check Prime
+const initCodeMirror = () => {
+  if (!editorHost) {
+    throw new Error("Editor host element not found");
+  }
+
+  const startState = EditorState.create({
+    doc: `// Example: Check Prime
 function isPrime(num) {
   for(let i = 2, s = Math.sqrt(num); i <= s; i++)
     if(num % i === 0) return false;
@@ -188,19 +194,74 @@ for (let i = 0; i < 1000; i++) {
     if (isPrime(i)) count++;
 }
 return count;`,
-        language: "javascript",
-        theme: "vs-dark",
-        minimap: { enabled: false },
-        fontSize: 14,
-        automaticLayout: true,
-      });
-      resolve(instance);
-    }, reject);
+    extensions: [
+      lineNumbers(),
+      highlightActiveLineGutter(),
+      history(),
+      indentOnInput(),
+      syntaxHighlighting(oneDark),
+      javascript(),
+      keymap.of([
+        ...defaultKeymap,
+        ...historyKeymap,
+        indentWithTab,
+        {
+          key: "Mod-Enter",
+          run: () => {
+            runCode();
+            return true;
+          }
+        }
+      ]),
+      EditorView.theme({
+        "&": {
+          height: "400px",
+          fontSize: "14px",
+          fontFamily: "'IBM Plex Mono', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace",
+          backgroundColor: "#0b1220",
+          color: "#e2e8f0"
+        },
+        ".cm-scroller": {
+          fontFamily: "inherit"
+        },
+        ".cm-focused": {
+          outline: "none"
+        },
+        ".cm-gutters": {
+          backgroundColor: "#0f172a",
+          color: "#94a3b8",
+          border: "none"
+        },
+        ".cm-activeLineGutter": {
+          backgroundColor: "#1e293b"
+        },
+        ".cm-line": {
+          padding: "0 2px"
+        },
+        ".cm-activeLine": {
+          backgroundColor: "rgba(14, 165, 233, 0.1)"
+        },
+        ".cm-selectionBackground": {
+          backgroundColor: "rgba(14, 165, 233, 0.2) !important"
+        },
+        ".cm-cursor": {
+          borderLeft: "2px solid #0ea5e9"
+        }
+      })
+    ]
   });
+
+  editorView = new EditorView({
+    state: startState,
+    parent: editorHost
+  });
+
+  return editorView;
+};
 
 const init = async () => {
   try {
-    editorInstance = await initMonaco();
+    editorView = initCodeMirror();
   } catch (err) {
     if (resultEl) {
       resultEl.textContent = `Editor failed to load: ${err instanceof Error ? err.message : String(err)}`;

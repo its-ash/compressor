@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#06090f" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#f7f9fc" media="(prefers-color-scheme: light)">
-  <meta name="description" content="Free online tools for video compression, file zipping, and AI chat. Process everything locally in your browser - no uploads, works offline, complete privacy.">
-  <meta name="keywords" content="free tools, video compressor, file zipper, online tools, web tools, compression, zip files, video editor, AI chat, local processing, offline tools, privacy tools">
+  <meta name="description" content="Free online tools for video compression, file zipping, AI chat, and code execution. Process everything locally in your browser - no uploads, works offline, complete privacy.">
+  <meta name="keywords" content="free tools, video compressor, file zipper, online tools, web tools, compression, zip files, video editor, AI chat, code sandbox, rust execution, javascript runner, local processing, offline tools, privacy tools">
   <meta name="author" content="Ash Tools">
   <meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1">
   <link rel="favicon" href="./icon.gif">
@@ -14,14 +14,14 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://ash-tools.store/">
   <meta property="og:title" content="tools | Free Online Tools">
-  <meta property="og:description" content="Free online tools for video compression, file zipping, and AI chat. Everything processed locally in your browser.">
+  <meta property="og:description" content="Free online tools for video compression, file zipping, AI chat, and code execution. Everything processed locally in your browser.">
   <meta property="og:image" content="https://ash-tools.store/icons/icon-512.png">
   <meta property="og:image:width" content="512">
   <meta property="og:image:height" content="512">
   <meta property="og:site_name" content="Ash Tools">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="tools | Free Online Tools">
-  <meta name="twitter:description" content="Free online tools for video compression, file zipping, and AI chat. Everything processed locally in your browser.">
+  <meta name="twitter:description" content="Free online tools for video compression, file zipping, AI chat, and code execution. Everything processed locally in your browser.">
   <meta name="twitter:image" content="https://ash-tools.store/icons/icon-512.png">
   <title>tools | Free Online Tools</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -293,6 +293,15 @@
       box-shadow: 0 8px 24px rgba(236, 72, 153, 0.4);
     }
 
+    .sandbox-button {
+      background: linear-gradient(120deg, #6366f1, #8b5cf6);
+      color: white;
+    }
+
+    .sandbox-button:hover {
+      box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+    }
+
     .footer {
       font-size: 14px;
       color: var(--muted);
@@ -438,6 +447,21 @@
         </div>
 
         <button class="tool-button regex-button">Open Regex Tool →</button>
+      </a>
+
+      <a href="./sandbox/" class="tool-card">
+        <div class="tool-icon sandbox-icon">🧪</div>
+        <h2 class="tool-title">Code Sandbox</h2>
+        <p class="tool-description">Run and test code in multiple languages with WebAssembly. Execute Rust, JavaScript, Python, and C++ in an isolated browser environment.</p>
+
+        <div class="tool-features">
+          <div class="tool-feature">Multi-language support</div>
+          <div class="tool-feature">WASI runtime execution</div>
+          <div class="tool-feature">Stdin input support</div>
+          <div class="tool-feature">Copy output to clipboard</div>
+        </div>
+
+        <button class="tool-button sandbox-button">Open Code Sandbox →</button>
       </a>
     </main>
 
