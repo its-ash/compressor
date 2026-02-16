@@ -1,0 +1,15 @@
+{
+  "name": "regexp-wasm",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "regexp_wasm_bg.wasm",
+    "regexp_wasm.js",
+    "regexp_wasm.d.ts"
+  ],
+  "main": "regexp_wasm.js",
+  "types": "regexp_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

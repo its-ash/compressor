@@ -1,0 +1,31 @@
+/* tslint:disable */
+/* eslint-disable */
+export const memory: WebAssembly.Memory;
+export const generate_regex: (a: any) => [number, number];
+export const __wbg_regexpbuilder_free: (a: number, b: number) => void;
+export const regexpbuilder_build: (a: number) => [number, number];
+export const regexpbuilder_from: (a: number, b: number) => [number, number, number];
+export const regexpbuilder_withCapturingGroups: (a: number) => number;
+export const regexpbuilder_withCaseInsensitiveMatching: (a: number) => number;
+export const regexpbuilder_withConversionOfDigits: (a: number) => number;
+export const regexpbuilder_withConversionOfNonDigits: (a: number) => number;
+export const regexpbuilder_withConversionOfNonWhitespace: (a: number) => number;
+export const regexpbuilder_withConversionOfNonWords: (a: number) => number;
+export const regexpbuilder_withConversionOfRepetitions: (a: number) => number;
+export const regexpbuilder_withConversionOfWhitespace: (a: number) => number;
+export const regexpbuilder_withConversionOfWords: (a: number) => number;
+export const regexpbuilder_withEscapingOfNonAsciiChars: (a: number, b: number) => number;
+export const regexpbuilder_withMinimumRepetitions: (a: number, b: number) => [number, number, number];
+export const regexpbuilder_withMinimumSubstringLength: (a: number, b: number) => [number, number, number];
+export const regexpbuilder_withVerboseMode: (a: number) => number;
+export const regexpbuilder_withoutAnchors: (a: number) => number;
+export const regexpbuilder_withoutEndAnchor: (a: number) => number;
+export const regexpbuilder_withoutStartAnchor: (a: number) => number;
+export const __wbindgen_malloc: (a: number, b: number) => number;
+export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+export const __wbindgen_exn_store: (a: number) => void;
+export const __externref_table_alloc: () => number;
+export const __wbindgen_externrefs: WebAssembly.Table;
+export const __wbindgen_free: (a: number, b: number, c: number) => void;
+export const __externref_table_dealloc: (a: number) => void;
+export const __wbindgen_start: () => void;
