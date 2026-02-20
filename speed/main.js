@@ -43,15 +43,15 @@ const drawChart = (samples) => {
   const ctx = chart.getContext("2d");
   const w = chart.width;
   const h = chart.height;
-  
+
   // Clear
   ctx.clearRect(0, 0, w, h);
-  
+
   if (!samples || !samples.length) return;
 
   const max = Math.max(...samples);
   const min = Math.min(...samples);
-  
+
   // Improved Graph Quality: Area Chart + Gradient + Smoothing
   const padding = 10;
   const graphW = w - (padding * 2);
@@ -71,9 +71,9 @@ const drawChart = (samples) => {
   const scaleY = max === 0 ? 0 : graphH / (max * 1.1); // 10% headroom
 
   samples.forEach((val, i) => {
-      const x = padding + i * stepX;
-      const y = h - padding - (val * scaleY);
-      ctx.lineTo(x, y);
+    const x = padding + i * stepX;
+    const y = h - padding - (val * scaleY);
+    ctx.lineTo(x, y);
   });
 
   ctx.lineTo(w - padding, h - padding);
@@ -86,17 +86,17 @@ const drawChart = (samples) => {
   ctx.strokeStyle = "#22d3ee";
   ctx.lineWidth = 2;
   ctx.lineJoin = "round";
-  
+
   samples.forEach((val, i) => {
-      const x = padding + i * stepX;
-      const y = h - padding - (val * scaleY);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+    const x = padding + i * stepX;
+    const y = h - padding - (val * scaleY);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
   });
   ctx.stroke();
 
   // Draw Mean Line
-  const avg = samples.reduce((a,b)=>a+b,0) / samples.length;
+  const avg = samples.reduce((a, b) => a + b, 0) / samples.length;
   const avgY = h - padding - (avg * scaleY);
   ctx.beginPath();
   ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
@@ -118,60 +118,60 @@ const runCode = () => {
   if (runLabel) runLabel.textContent = "Running 500x";
   resultEl.textContent = "Running...";
   if (statsEl) statsEl.textContent = "Running...";
-  
+
   // Use Worker
   let worker;
   try {
-      worker = new Worker("worker.js");
+    worker = new Worker("worker.js");
   } catch (e) {
-      resultEl.textContent = "Error: Worker not supported or file missing.";
-      cleanup();
-      return;
+    resultEl.textContent = "Error: Worker not supported or file missing.";
+    cleanup();
+    return;
   }
-  
+
   worker.onmessage = (e) => {
-      const { results, error, startHeap, endHeap } = e.data;
-      
-      if (error) {
-          resultEl.textContent = `Error: ${error}`;
-          if (statsEl) statsEl.textContent = "Error";
-          drawChart([]);
-      } else {
-          const avg = results.reduce((a, b) => a + b, 0) / results.length;
-          const min = Math.min(...results);
-          const max = Math.max(...results);
-          const heapDelta = (typeof startHeap === 'number' && typeof endHeap === 'number') 
-                            ? endHeap - startHeap 
-                            : null;
+    const { results, error, startHeap, endHeap } = e.data;
 
-          resultEl.textContent = `Done.`; 
-          if (statsEl) {
-              const timePart = `avg: ${avg.toFixed(2)}ms (min: ${min.toFixed(2)}ms, max: ${max.toFixed(2)}ms)`;
-              const memPart = heapDelta !== null ? `heap Δ: ${formatBytes(heapDelta)}` : "";
-              statsEl.textContent = `${timePart} ${memPart ? '• ' + memPart : ''}`;
-          }
+    if (error) {
+      resultEl.textContent = `Error: ${error}`;
+      if (statsEl) statsEl.textContent = "Error";
+      drawChart([]);
+    } else {
+      const avg = results.reduce((a, b) => a + b, 0) / results.length;
+      const min = Math.min(...results);
+      const max = Math.max(...results);
+      const heapDelta = (typeof startHeap === 'number' && typeof endHeap === 'number')
+        ? endHeap - startHeap
+        : null;
 
-          drawChart(results);
-          if (chartCaption) chartCaption.textContent = `${results.length} runs`;
-          if (chartTime) chartTime.textContent = `avg ${avg.toFixed(2)} ms`;
-          if (chartHeap) chartHeap.textContent = heapDelta !== null ? `heap Δ ${formatBytes(heapDelta)}` : "heap Δ n/a";
+      resultEl.textContent = `Done.`;
+      if (statsEl) {
+        const timePart = `avg: ${avg.toFixed(2)}ms (min: ${min.toFixed(2)}ms, max: ${max.toFixed(2)}ms)`;
+        const memPart = heapDelta !== null ? `heap Δ: ${formatBytes(heapDelta)}` : "";
+        statsEl.textContent = `${timePart} ${memPart ? '• ' + memPart : ''}`;
       }
 
-      cleanup();
+      drawChart(results);
+      if (chartCaption) chartCaption.textContent = `${results.length} runs`;
+      if (chartTime) chartTime.textContent = `avg ${avg.toFixed(2)} ms`;
+      if (chartHeap) chartHeap.textContent = heapDelta !== null ? `heap Δ ${formatBytes(heapDelta)}` : "heap Δ n/a";
+    }
+
+    cleanup();
   };
 
   worker.onerror = (err) => {
-      resultEl.textContent = `Worker Error: ${err.message}`;
-      cleanup();
+    resultEl.textContent = `Worker Error: ${err.message}`;
+    cleanup();
   };
 
   worker.postMessage({ code, iterations: runs });
 
   function cleanup() {
-      runBtn.disabled = false;
-      if (runSpinner) runSpinner.style.display = "none";
-      if (runLabel) runLabel.textContent = "Run 500x";
-      if (worker) worker.terminate();
+    runBtn.disabled = false;
+    if (runSpinner) runSpinner.style.display = "none";
+    if (runLabel) runLabel.textContent = "Run 500x";
+    if (worker) worker.terminate();
   }
 };
 
