@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#22d3ee;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="42" fill="#0b1220"/>
+  <g transform="translate(96,96)">
+    <!-- Film strip frame -->
+    <rect x="-60" y="-45" width="120" height="90" rx="8" fill="none" stroke="url(#grad)" stroke-width="4"/>
+    <rect x="-68" y="-48" width="8" height="12" fill="url(#grad)"/>
+    <rect x="-68" y="-28" width="8" height="12" fill="url(#grad)"/>
+    <rect x="-68" y="-8" width="8" height="12" fill="url(#grad)"/>
+    <rect x="-68" y="12" width="8" height="12" fill="url(#grad)"/>
+    <rect x="-68" y="32" width="8" height="12" fill="url(#grad)"/>
+    <rect x="60" y="-48" width="8" height="12" fill="url(#grad)"/>
+    <rect x="60" y="-28" width="8" height="12" fill="url(#grad)"/>
+    <rect x="60" y="-8" width="8" height="12" fill="url(#grad)"/>
+    <rect x="60" y="12" width="8" height="12" fill="url(#grad)"/>
+    <rect x="60" y="32" width="8" height="12" fill="url(#grad)"/>
+    <!-- Play button -->
+    <circle cx="0" cy="0" r="22" fill="url(#grad)" opacity="0.9"/>
+    <polygon points="-6,-10 -6,10 12,0" fill="#0b1220"/>
+    <!-- Trim markers -->
+    <line x1="-40" y1="-52" x2="-40" y2="-58" stroke="#22d3ee" stroke-width="3" stroke-linecap="round"/>
+    <line x1="20" y1="-52" x2="20" y2="-58" stroke="#22d3ee" stroke-width="3" stroke-linecap="round"/>
+  </g>
+</svg>

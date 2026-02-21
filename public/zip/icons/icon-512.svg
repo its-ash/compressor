@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ZIP icon">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop stop-color="#48f2c2" offset="0%"/>
+      <stop stop-color="#79ffd7" offset="100%"/>
+    </linearGradient>
+  </defs>
+  <rect x="28" y="28" width="456" height="456" rx="64" fill="#06090f" stroke="#48f2c2" stroke-width="12"/>
+  <rect x="96" y="96" width="320" height="320" rx="32" fill="url(#g)" opacity="0.12" stroke="#48f2c2" stroke-width="8"/>
+  <path fill="#48f2c2" d="M244 118h64v52h-64zM244 190h64v52h-64zM244 262h64v52h-64zM244 334h64v32h-64z"/>
+  <text x="256" y="396" fill="#48f2c2" font-family="'IBM Plex Mono', monospace" font-size="80" text-anchor="middle" font-weight="600">ZIP</text>
+</svg>

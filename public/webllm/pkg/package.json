@@ -1,0 +1,17 @@
+{
+  "name": "webllm_wasm",
+  "type": "module",
+  "description": "Local WebLLM conversation utilities for the browser",
+  "version": "0.1.0",
+  "license": "MIT OR Apache-2.0",
+  "files": [
+    "webllm_wasm_bg.wasm",
+    "webllm_wasm.js",
+    "webllm_wasm.d.ts"
+  ],
+  "main": "webllm_wasm.js",
+  "types": "webllm_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

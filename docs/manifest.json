@@ -1,0 +1,16 @@
+{
+  "name": "Local WASM Tools",
+  "short_name": "WASM Tools",
+  "description": "Free online WASM tools for image, video, regex, compression, and more. Runs locally in your browser.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/icon.gif",
+      "sizes": "256x256",
+      "type": "image/gif"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+[package]
+name = "video_wasm"
+version = "0.1.0"
+edition = "2021"
+description = "WebAssembly video file metadata extractor and validator"
+license = "MIT OR Apache-2.0"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["console_error_panic_hook"]
+console_error_panic_hook = ["dep:console_error_panic_hook"]
+
+[dependencies]
+wasm-bindgen = "0.2.92"
+js-sys = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde-wasm-bindgen = "0.6"
+console_error_panic_hook = { version = "0.1", optional = true }
+
+[profile.release]
+opt-level = "z"     # Optimize for size
+lto = true          # Enable Link Time Optimization
+codegen-units = 1   # Better optimization
+panic = "abort"     # Smaller binary
+strip = true        # Strip symbols
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false    # Disable wasm-opt due to bulk memory compatibility
